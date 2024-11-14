@@ -2,14 +2,14 @@ import { Args, Command } from '@oclif/core';
 import { getConfig, setConfig, resetConfig, getAllConfig } from '../utils/config.js';
 
 export default class Settings extends Command {
-  static description = 'Configure CLI preferences';
-
-
   static override args = {
     action: Args.string({ required: true, description: 'Action to perform (set, get, list, reset)' }),
     key: Args.string({ required: false, description: 'Setting key' }),
     value: Args.string({ required: false, description: 'Value to set' }),
   };
+
+
+  static description = 'Configure CLI preferences';
 
 
   static examples = [

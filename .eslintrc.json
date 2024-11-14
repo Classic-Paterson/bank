@@ -1,3 +1,7 @@
 {
-  "extends": ["oclif", "oclif-typescript", "prettier"]
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
+  "rules": {
+    "perfectionist": "off",
+    "@typescript-eslint/no-explicit-any": "off"
+  }
 }

@@ -1,15 +1,16 @@
 import { Args, Command, Flags } from '@oclif/core';
-import { formatOutput } from '../utils/output.js';
-import { listAllTransactions } from '../utils/api.js';
 import { EnrichedTransaction } from 'akahu/dist/index.js';
+
+import { listAccounts, listAllTransactions } from '../utils/api.js';
 import { getConfig } from '../utils/config.js';
+import { formatOutput } from '../utils/output.js';
 
 export default class Transactions extends Command {
-  static description = 'Access transaction data';
-
   static override args = {
     transaction: Args.string({ description: 'Transaction ID or description to filter' }),
   };
+
+  static description = 'Access transaction data';
 
   static override examples = [
     '<%= config.bin %> <%= command.id %>',
@@ -17,37 +18,42 @@ export default class Transactions extends Command {
     '<%= config.bin %> <%= command.id %> --minAmount 100 --maxAmount 500',
     '<%= config.bin %> <%= command.id %> --account acc_12345',
     '<%= config.bin %> <%= command.id %> --category "Groceries"',
+    '<%= config.bin %> <%= command.id %> --type "TRANSFER"',
   ];
 
   static override flags = {
+    account: Flags.string({
+      char: 'a',
+      description: 'Account ID to filter transactions',
+    }),
+    category: Flags.string({
+      char: 'c',
+      description: 'Transaction category to filter',
+    }),
     format: Flags.string({
       char: 'f',
       description: 'Output format (json, csv, table)',
       options: ['json', 'csv', 'table'],
     }),
-    account: Flags.string({
-      char: 'a',
-      description: 'Account ID to filter transactions',
-    }),
-    since: Flags.string({
-      char: 's',
-      description: 'Start date for transactions (YYYY-MM-DD)',
-      required: true,
-    }),
-    until: Flags.string({
-      char: 'u',
-      description: 'End date for transactions (YYYY-MM-DD)',
-      required: true,
+    maxAmount: Flags.integer({
+      description: 'Maximum transaction amount',
     }),
     minAmount: Flags.integer({
       description: 'Minimum transaction amount',
     }),
-    maxAmount: Flags.integer({
-      description: 'Maximum transaction amount',
+    since: Flags.string({
+      char: 's',
+      default: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      description: 'Start date for transactions (YYYY-MM-DD)',
     }),
-    category: Flags.string({
-      char: 'c',
-      description: 'Transaction category to filter',
+    until: Flags.string({
+      char: 'u',
+      default: new Date().toISOString().split('T')[0],
+      description: 'End date for transactions (YYYY-MM-DD)',
+    }),
+    type: Flags.string({
+      char: 't',
+      description: 'Transaction type to filter',
     }),
   };
 
@@ -63,25 +69,43 @@ export default class Transactions extends Command {
         flags.until,
       ) as EnrichedTransaction[];
 
+      const accounts = await listAccounts();
+      
       // Map transactions to desired output format
-      const transactions = transactionsData.map(transaction => ({
-        id: transaction._id,
-        date: transaction.date,
-        description: transaction.description,
-        merchant: transaction.merchant?.name ?? '',
-        amount: transaction.amount,
-        type: transaction.type,
-        category: transaction.category?.name ?? '',
-        account_id: transaction._account,
-        account_name: transaction._account ?? '',
-      }));
+      const transactions = transactionsData.map(transaction => {
+        let category = transaction.category?.name ?? '';
+      
+        if (transaction.type === "TRANSFER") {
+          category = 'Transfer';
+        } else if (transaction.type === "STANDING ORDER") {
+          category = 'Automatic Payment';
+        } else if (transaction.type === "CREDIT" && (transaction.description.toLowerCase().includes("drawings") || transaction.description.toLowerCase().includes("salary"))) {
+          category = 'Income';
+        }
+      
+        return {
+          date: new Date(transaction.date), // Keep as Date object for sorting
+          accountName: accounts.find(account => account._id === transaction._account)?.name ?? '',
+          amount: transaction.amount,
+          particulars: transaction.meta?.particulars ?? '',
+          description: transaction.description,
+          merchant: transaction.merchant?.name ?? '',
+          category: category,
+          type: transaction.type,
+          accountNumber: accounts.find(account => account._id === transaction._account)?.formatted_account ?? '',
+          id: transaction._id,
+        };
+      });
+
+      // Sort transactions by date
+      transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
       let filteredTransactions = transactions;
 
       // Filter by account ID if provided
       if (flags.account) {
         filteredTransactions = filteredTransactions.filter(transaction =>
-          transaction.account_id === flags.account || transaction.account_name.toLowerCase() === (flags.account ?? '').toLowerCase()
+          transaction.accountNumber === flags.account || transaction.accountName.toLowerCase() === (flags.account ?? '').toLowerCase()
         );
       }
 
@@ -103,7 +127,15 @@ export default class Transactions extends Command {
       // Filter by maximum amount if provided
       if (flags.maxAmount !== undefined) {
         filteredTransactions = filteredTransactions.filter(transaction =>
-          transaction.amount <= (flags.maxAmount ?? Infinity)
+          transaction.amount <= (flags.maxAmount ?? Number.POSITIVE_INFINITY)
+        );
+      }
+
+      // Filter by transaction type if provided
+      if (flags.type) {
+        const typeFilter = flags.type.toLowerCase();
+        filteredTransactions = filteredTransactions.filter(transaction =>
+          transaction.type.toLowerCase() === typeFilter
         );
       }
 
@@ -117,11 +149,17 @@ export default class Transactions extends Command {
       }
 
       if (filteredTransactions.length > 0) {
-        formatOutput(filteredTransactions, format);
+        // Format the date for display
+        const formattedTransactions = filteredTransactions.map(transaction => ({
+          ...transaction,
+          date: transaction.date.toLocaleDateString(),
+        }));
+        formatOutput(formattedTransactions, format);
       } else {
         this.error('No transactions found matching your criteria.');
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       this.error(`Error fetching transactions: ${error.message}`);
     }

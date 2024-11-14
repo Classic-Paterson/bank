@@ -20,7 +20,7 @@ $ npm install -g bank
 $ bank COMMAND
 running command...
 $ bank (--version)
-bank/0.0.0 darwin-arm64 node-v20.12.1
+bank/1.0.0 darwin-arm64 node-v20.12.1
 $ bank --help [COMMAND]
 USAGE
   $ bank COMMAND
@@ -32,8 +32,10 @@ USAGE
 
 <!-- commands -->
 * [`bank accounts [ACCOUNT]`](#bank-accounts-account)
+* [`bank refresh`](#bank-refresh)
 * [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
 * [`bank transactions [TRANSACTION]`](#bank-transactions-transaction)
+* [`bank transfer`](#bank-transfer)
 
 ## `bank accounts [ACCOUNT]`
 
@@ -62,7 +64,24 @@ EXAMPLES
   $ bank accounts --type savings
 ```
 
-_See code: [src/commands/accounts.ts](https://github.com/lab/bank/blob/v0.0.0/src/commands/accounts.ts)_
+_See code: [src/commands/accounts.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/accounts.ts)_
+
+## `bank refresh`
+
+Trigger a data refresh for all linked accounts
+
+```
+USAGE
+  $ bank refresh
+
+DESCRIPTION
+  Trigger a data refresh for all linked accounts
+
+EXAMPLES
+  $ bank refresh
+```
+
+_See code: [src/commands/refresh.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/refresh.ts)_
 
 ## `bank settings ACTION [KEY] [VALUE]`
 
@@ -90,7 +109,7 @@ EXAMPLES
   $ bank settings reset api_key
 ```
 
-_See code: [src/commands/settings.ts](https://github.com/lab/bank/blob/v0.0.0/src/commands/settings.ts)_
+_See code: [src/commands/settings.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/settings.ts)_
 
 ## `bank transactions [TRANSACTION]`
 
@@ -98,8 +117,8 @@ Access transaction data
 
 ```
 USAGE
-  $ bank transactions [TRANSACTION] -s <value> -u <value> [-f json|csv|table] [-a <value>] [--minAmount <value>]
-    [--maxAmount <value>] [-c <value>]
+  $ bank transactions [TRANSACTION] [-a <value>] [-c <value>] [-f json|csv|table] [--maxAmount <value>]
+    [--minAmount <value>] [-s <value>] [-u <value>] [-t <value>]
 
 ARGUMENTS
   TRANSACTION  Transaction ID or description to filter
@@ -109,8 +128,9 @@ FLAGS
   -c, --category=<value>   Transaction category to filter
   -f, --format=<option>    Output format (json, csv, table)
                            <options: json|csv|table>
-  -s, --since=<value>      (required) Start date for transactions (YYYY-MM-DD)
-  -u, --until=<value>      (required) End date for transactions (YYYY-MM-DD)
+  -s, --since=<value>      [default: 2024-11-13] Start date for transactions (YYYY-MM-DD)
+  -t, --type=<value>       Transaction type to filter
+  -u, --until=<value>      [default: 2024-11-14] End date for transactions (YYYY-MM-DD)
       --maxAmount=<value>  Maximum transaction amount
       --minAmount=<value>  Minimum transaction amount
 
@@ -127,7 +147,35 @@ EXAMPLES
   $ bank transactions --account acc_12345
 
   $ bank transactions --category "Groceries"
+
+  $ bank transactions --type "TRANSFER"
 ```
 
-_See code: [src/commands/transactions.ts](https://github.com/lab/bank/blob/v0.0.0/src/commands/transactions.ts)_
+_See code: [src/commands/transactions.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/transactions.ts)_
+
+## `bank transfer`
+
+Initiate a funds transfer
+
+```
+USAGE
+  $ bank transfer -f <value> -t <value> -a <value> [-d <value>] [-r <value>]
+
+FLAGS
+  -a, --amount=<value>       (required) Amount to transfer (in NZD)
+  -d, --description=<value>  Transfer description
+  -f, --from=<value>         (required) Source account ID or name
+  -r, --reference=<value>    Transfer reference
+  -t, --to=<value>           (required) Destination account number (e.g., 12-3456-7890123-00)
+
+DESCRIPTION
+  Initiate a funds transfer
+
+EXAMPLES
+  $ bank transfer --from "Everyday Checking" --to 12-3456-7890123-00 --amount 100.00
+
+  $ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --description "Payment for services" --reference "Invoice 123"
+```
+
+_See code: [src/commands/transfer.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/transfer.ts)_
 <!-- commandsstop -->

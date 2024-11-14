@@ -1,88 +1,122 @@
+/* eslint-disable camelcase */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Table from 'cli-table3';
-import { stringify } from 'csv-stringify/sync';
+import { Input, stringify } from 'csv-stringify/sync';
 
-// Helper function to format amounts
-function formatAmounts(data: any): any {
-    if (Array.isArray(data)) {
-        return data.map(item => formatAmounts(item));
-    } else if (typeof data === 'object' && data !== null) {
-        const formattedData: any = {};
-        for (const key in data) {
-            if (data.hasOwnProperty(key)) {
-                formattedData[key] = formatAmounts(data[key]);
-            }
+export function formatOutput(data: any, format: string): void {
+    switch (format.toLowerCase()) {
+        case 'json': {
+            console.log(JSON.stringify(data, null, 2));
+            break;
         }
-        return formattedData;
-    } else if (typeof data === 'number') {
-        return `$${data.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        case 'csv': {
+            formatAsCsv(data);
+            break;
+        }
+
+        case 'table':
+        default: {
+            formatAsTable(data);
+            break;
+        }
     }
-    return data;
 }
 
-// Function to format data as JSON
-export function formatAsJson(data: any): void {
-    const formattedData = formatAmounts(data);
-    console.log(JSON.stringify(formattedData, null, 2));
+function formatAsTable(data: any): void {
+    if (Array.isArray(data)) {
+        formatArrayAsTable(data);
+    } else if (data.months && data.expenses_by_category) {
+        formatExpensesByCategoryAsTable(data);
+    } else {
+        console.error('Unsupported data format for table output');
+    }
 }
 
-// Function to format data as CSV
-export function formatAsCsv(data: any[]): void {
-    const formattedData = formatAmounts(data);
-    const csv = stringify(formattedData, { header: true });
-    console.log(csv);
-}
-
-// Function to format data as a table
-export function formatAsTable(data: any[]): void {
-    if (!Array.isArray(data) || data.length === 0) {
-        console.log('No data available.');
+function formatArrayAsTable(data: any[]): void {
+    if (data.length === 0) {
+        console.log('No data available');
         return;
     }
 
-    const formattedData = formatAmounts(data);
+    const headers = Object.keys(data[0]);
 
-    // Create table headers from object keys
-    const headers = Object.keys(formattedData[0]);
+    // Calculate the maximum width for each column
+    const colWidths = headers.map(header => {
+        const headerWidth = header.length;
+        const maxItemWidth = Math.max(...data.map(item => String(item[header]).length));
+        return Math.min(Math.max(headerWidth, maxItemWidth) + 2, 40); // Adding some padding and setting max width
+    });
 
     const table = new Table({
+        colWidths,
         head: headers,
-        colWidths: headers.map(() => 20),
-        wordWrap: true,
+        style: { head: ['cyan'] },
     });
 
-    formattedData.forEach((item: { [x: string]: any; }) => {
-        const row = headers.map((header) => {
-            const value = item[header];
-            return typeof value === 'object' ? JSON.stringify(value) : value;
-        });
+    for (const item of data) {
+        const row = headers.map(header => item[header]);
         table.push(row);
-    });
+    }
 
     console.log(table.toString());
 }
 
-// Main function to format output based on user preference
-export function formatOutput(data: any, format: string): void {
-    switch (format.toLowerCase()) {
-        case 'json':
-            formatAsJson(data);
-            break;
-        case 'csv':
-            if (Array.isArray(data)) {
-                formatAsCsv(data);
-            } else {
-                formatAsCsv([data]);
-            }
-            break;
-        case 'table':
-            if (Array.isArray(data)) {
-                formatAsTable(data);
-            } else {
-                formatAsTable([data]);
-            }
-            break;
-        default:
-            console.error(`Unknown format '${format}'. Supported formats are json, csv, table.`);
-            break;
+function formatExpensesByCategoryAsTable(data: any): void {
+    const { expenses_by_category, months } = data;
+
+    const headers = ['Category', ...months];
+
+    const table = new Table({
+        colWidths: [30, ...months.map(() => 15)],
+        head: headers,
+        style: { head: ['cyan'] },
+    });
+
+    for (const category of Object.keys(expenses_by_category)) {
+        const row = [category];
+        months.forEach((month: number | string) => {
+            const amount = expenses_by_category[category][month] || 0;
+            row.push(`$${amount.toFixed(2)}`);
+        });
+        table.push(row);
     }
+
+    console.log(table.toString());
+}
+
+function formatAsCsv(data: any): void {
+    if (Array.isArray(data)) {
+        formatArrayAsCsv(data);
+    } else if (data.months && data.expenses_by_category) {
+        formatExpensesByCategoryAsCsv(data);
+    } else {
+        console.error('Unsupported data format for CSV output');
+    }
+}
+
+function formatArrayAsCsv(data: any[]): void {
+    const columns = Object.keys(data[0]);
+    const csv = stringify(data, { columns, header: true });
+    console.log(csv);
+}
+
+function formatExpensesByCategoryAsCsv(data: any): void {
+    const { expenses_by_category, months } = data;
+
+    const records: Input = [];
+
+    for (const category of Object.keys(expenses_by_category)) {
+        const record: { [key: string]: string } = { category };
+        months.forEach((month: number | string) => {
+            const amount = expenses_by_category[category][month] || 0;
+            record[month] = amount.toFixed(2);
+        });
+        records.push(record);
+    }
+
+    const columns = ['category', ...months];
+
+    const csv = stringify(records, { columns, header: true });
+    console.log(csv);
 }

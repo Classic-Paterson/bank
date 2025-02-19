@@ -85,7 +85,7 @@ export default class Transactions extends Command {
         }
       
         return {
-          date: new Date(transaction.date), // Keep as Date object for sorting
+          date: new Date(transaction.date),
           accountName: accounts.find(account => account._id === transaction._account)?.name ?? '',
           amount: transaction.amount,
           particulars: transaction.meta?.particulars ?? '',

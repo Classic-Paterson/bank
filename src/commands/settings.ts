@@ -50,7 +50,7 @@ export default class Settings extends Command {
           }
           break;
 
-        case 'list':
+        case 'list': {
           const config = getAllConfig();
           if (Object.keys(config).length > 0) {
             this.log('Current settings:');
@@ -61,6 +61,7 @@ export default class Settings extends Command {
             this.log('No settings have been configured.');
           }
           break;
+        }
 
         case 'reset':
           if (!key) {

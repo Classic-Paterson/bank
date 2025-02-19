@@ -74,6 +74,7 @@ export default class Transactions extends Command {
       // Map transactions to desired output format
       const transactions = transactionsData.map(transaction => {
         let category = transaction.category?.name ?? '';
+        const parentCategory = transaction.category?.groups['personal_finance']?.name ?? '';
       
         if (transaction.type === "TRANSFER") {
           category = 'Transfer';
@@ -90,6 +91,7 @@ export default class Transactions extends Command {
           particulars: transaction.meta?.particulars ?? '',
           description: transaction.description,
           merchant: transaction.merchant?.name ?? '',
+          parentCategory: parentCategory,
           category: category,
           type: transaction.type,
           accountNumber: accounts.find(account => account._id === transaction._account)?.formatted_account ?? '',

@@ -214,6 +214,33 @@ export default class Transactions extends Command {
           : formattedTransactions;
         
         formatOutput(displayData, format);
+        
+        if (format.toLowerCase() === 'table' && flags.details) {
+          // Existing summary
+          const totalTransactions = filteredTransactions.length;
+          const totalAmount = filteredTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+          console.log(`\nSummary: Total Transactions: ${totalTransactions} | Total Amount: $${totalAmount.toFixed(2)}\n`);
+          
+          // New: Category Breakdown summary (enhanced), ignoring empty categories
+          const categorySummary = filteredTransactions.reduce<Record<string, number>>((acc, tx) => {
+            const category = tx.parentCategory.toLowerCase().trim();
+            if (category) {
+              acc[category] = (acc[category] || 0) + Number(tx.amount);
+            }
+            return acc;
+          }, {});
+          // Calculate total spending (absolute amounts)
+          const totalSpending = Object.values(categorySummary).reduce((sum, amt) => sum + Math.abs(amt), 0);
+          console.log('Category Breakdown:');
+          // Sort categories by absolute amount descending
+          Object.entries(categorySummary)
+            .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
+            .forEach(([category, amount]) => {
+              const pct = totalSpending ? ((Math.abs(amount) / totalSpending) * 100).toFixed(1) : '0.0';
+              console.log(`  ${category}: $${amount.toFixed(2)} (${pct}%)`);
+            });
+          console.log('');
+        }
       } else {
         this.error('No transactions found matching your criteria.');
       }

@@ -43,8 +43,6 @@ export default class Accounts extends Command {
     try {
       const rawAccounts = await listAccounts();
 
-      console.dir(rawAccounts, { depth: null });
-
       // Map accounts based on the details flag
       const accounts = flags.details
         ? rawAccounts.map(account => ({

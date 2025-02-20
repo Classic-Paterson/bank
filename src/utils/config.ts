@@ -9,6 +9,7 @@ interface Config {
     api_key?: string;
     app_token?: string;
     format?: string;
+    cacheData?: boolean; // new property
     [key: string]: any;
 }
 

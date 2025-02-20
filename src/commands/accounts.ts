@@ -35,6 +35,7 @@ export default class Accounts extends Command {
     const typeFilter = flags.type?.toLowerCase();
 
     try {
+      console.dir(await listAccounts(), { depth: null, colors: true });
       const accounts = (await listAccounts()).map(account => ({
         name: account.name,
         balance: account.balance?.current ?? 0,

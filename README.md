@@ -128,9 +128,9 @@ FLAGS
   -c, --category=<value>   Transaction category to filter
   -f, --format=<option>    Output format (json, csv, table)
                            <options: json|csv|table>
-  -s, --since=<value>      [default: 2025-01-15] Start date for transactions (YYYY-MM-DD)
+  -s, --since=<value>      Start date for transactions (YYYY-MM-DD)
   -t, --type=<value>       Transaction type to filter
-  -u, --until=<value>      [default: 2025-01-16] End date for transactions (YYYY-MM-DD)
+  -u, --until=<value>      [default: 2025-02-20] End date for transactions (YYYY-MM-DD)
       --maxAmount=<value>  Maximum transaction amount
       --minAmount=<value>  Minimum transaction amount
 

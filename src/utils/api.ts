@@ -46,11 +46,12 @@ export async function listAllTransactions(startDate: string, endDate: string): P
     }
 
     // Fetch pending transactions
-    const pendingTransactionPage = await akahu.transactions.listPending(userToken);
+    const pendingTransactionPage = await akahu.transactions.listPending(userToken) as EnrichedTransaction[];
     const pendingTransactions: EnrichedTransaction[] = pendingTransactionPage as EnrichedTransaction[];
 
     // Combine normal and pending transactions
     const allTransactions = [...transactions, ...pendingTransactions];
+
 
     return allTransactions;
 }

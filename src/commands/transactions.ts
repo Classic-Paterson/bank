@@ -1,9 +1,9 @@
 import { Args, Command, Flags } from '@oclif/core';
-import { EnrichedTransaction } from 'akahu/dist/index.js';
 
 import { listAccounts, listAllTransactions } from '../utils/api.js';
 import { getConfig } from '../utils/config.js';
 import { formatOutput } from '../utils/output.js';
+import { getCacheData, updateCache } from '../utils/cache.js';
 
 export default class Transactions extends Command {
   static override args = {
@@ -43,7 +43,6 @@ export default class Transactions extends Command {
     }),
     since: Flags.string({
       char: 's',
-      default: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       description: 'Start date for transactions (YYYY-MM-DD)',
     }),
     until: Flags.string({
@@ -59,20 +58,33 @@ export default class Transactions extends Command {
 
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Transactions);
-
     const format = flags.format ?? getConfig('format') ?? 'json';
+    const { lastUpdate } = getCacheData();
+    const sinceDate = flags.since ?? lastUpdate?.split('T')[0] ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const untilParsed = new Date(flags.until);
+    const sinceParsed = new Date(sinceDate);
+
+    // If start and end are the same, shift end by one day
+    if (sinceParsed.toDateString() === untilParsed.toDateString()) {
+      untilParsed.setDate(untilParsed.getDate() + 1);
+    }
+
+    const untilDate = untilParsed.toISOString().split('T')[0];
 
     try {
       // Fetch all transactions within the date range
       const transactionsData = await listAllTransactions(
-        flags.since,
-        flags.until,
-      ) as EnrichedTransaction[];
+        sinceDate,
+        untilDate,
+      );
+
+      // Filter transactions explicitly based on sinceDate
+      const transactionsDataFiltered = transactionsData.filter(tx => new Date(tx.date) >= new Date(sinceDate));
 
       const accounts = await listAccounts();
       
       // Map transactions to desired output format
-      const transactions = transactionsData.map(transaction => {
+      const transactions = transactionsDataFiltered.map(transaction => {
         let category = transaction.category?.name ?? '';
         const parentCategory = transaction.category?.groups['personal_finance']?.name ?? '';
       
@@ -160,6 +172,8 @@ export default class Transactions extends Command {
       } else {
         this.error('No transactions found matching your criteria.');
       }
+
+      updateCache(transactionsData);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

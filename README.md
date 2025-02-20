@@ -43,12 +43,13 @@ View account information
 
 ```
 USAGE
-  $ bank accounts [ACCOUNT] [-f json|csv|table] [-t <value>]
+  $ bank accounts [ACCOUNT] [-f json|csv|table] [-t <value>] [-d]
 
 ARGUMENTS
   ACCOUNT  Account to filter
 
 FLAGS
+  -d, --details          Show detailed account info
   -f, --format=<option>  Output format (json, csv, table)
                          <options: json|csv|table>
   -t, --type=<value>     Account type to filter (loan, checking, savings, etc.)
@@ -62,6 +63,8 @@ EXAMPLES
   $ bank accounts --format csv
 
   $ bank accounts --type savings
+
+  $ bank accounts --details
 ```
 
 _See code: [src/commands/accounts.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/accounts.ts)_
@@ -118,21 +121,27 @@ Access transaction data
 ```
 USAGE
   $ bank transactions [TRANSACTION] [-a <value>] [-c <value>] [-f json|csv|table] [--maxAmount <value>]
-    [--minAmount <value>] [-s <value>] [-u <value>] [-t <value>]
+    [--minAmount <value>] [-s <value>] [-u <value>] [-t <value>] [-p professional
+    services|household|lifestyle|appearance|transport|food|housing|education|health|utilities] [-m <value>] [-d]
 
 ARGUMENTS
   TRANSACTION  Transaction ID or description to filter
 
 FLAGS
-  -a, --account=<value>    Account ID to filter transactions
-  -c, --category=<value>   Transaction category to filter
-  -f, --format=<option>    Output format (json, csv, table)
-                           <options: json|csv|table>
-  -s, --since=<value>      Start date for transactions (YYYY-MM-DD)
-  -t, --type=<value>       Transaction type to filter
-  -u, --until=<value>      [default: 2025-02-20] End date for transactions (YYYY-MM-DD)
-      --maxAmount=<value>  Maximum transaction amount
-      --minAmount=<value>  Minimum transaction amount
+  -a, --account=<value>          Account ID to filter transactions
+  -c, --category=<value>         Transaction category to filter
+  -d, --details                  Show detailed transaction info
+  -f, --format=<option>          Output format (json, csv, table)
+                                 <options: json|csv|table>
+  -m, --merchant=<value>         Merchant name to filter transactions
+  -p, --parentCategory=<option>  Parent category to filter transactions
+                                 <options: professional services|household|lifestyle|appearance|transport|food|housing|e
+                                 ducation|health|utilities>
+  -s, --since=<value>            Start date for transactions (YYYY-MM-DD)
+  -t, --type=<value>             Transaction type to filter
+  -u, --until=<value>            [default: 2025-02-20] End date for transactions (YYYY-MM-DD)
+      --maxAmount=<value>        Maximum transaction amount
+      --minAmount=<value>        Minimum transaction amount
 
 DESCRIPTION
   Access transaction data
@@ -149,6 +158,12 @@ EXAMPLES
   $ bank transactions --category "Groceries"
 
   $ bank transactions --type "TRANSFER"
+
+  $ bank transactions --parentCategory "Utilities"
+
+  $ bank transactions --merchant "Amazon"
+
+  $ bank transactions --parentCategory "Groceries" --merchant "Whole Foods"
 ```
 
 _See code: [src/commands/transactions.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/transactions.ts)_

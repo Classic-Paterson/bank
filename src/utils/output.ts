@@ -45,7 +45,7 @@ function formatArrayAsTable(data: any[]): void {
     const colWidths = headers.map(header => {
         const headerWidth = header.length;
         const maxItemWidth = Math.max(...data.map(item => String(item[header]).length));
-        return Math.min(Math.max(headerWidth, maxItemWidth) + 2, 40); // Adding some padding and setting max width
+        return Math.min(Math.max(headerWidth, maxItemWidth) + 3, 55); // Adding some padding and setting max width
     });
 
     const table = new Table({
@@ -55,7 +55,12 @@ function formatArrayAsTable(data: any[]): void {
     });
 
     for (const item of data) {
-        const row = headers.map(header => item[header]);
+        const row = headers.map(header => {
+            if (header === 'balance' || header === 'availableBalance' && typeof item[header] === 'number') {
+                return `$${item[header].toFixed(2)}`;
+            }
+            return item[header];
+        });
         table.push(row);
     }
 

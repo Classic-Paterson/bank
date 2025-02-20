@@ -19,6 +19,9 @@ export default class Transactions extends Command {
     '<%= config.bin %> <%= command.id %> --account acc_12345',
     '<%= config.bin %> <%= command.id %> --category "Groceries"',
     '<%= config.bin %> <%= command.id %> --type "TRANSFER"',
+    '<%= config.bin %> <%= command.id %> --parentCategory "Utilities"',
+    '<%= config.bin %> <%= command.id %> --merchant "Amazon"',
+    '<%= config.bin %> <%= command.id %> --parentCategory "Groceries" --merchant "Whole Foods"',
   ];
 
   static override flags = {
@@ -53,6 +56,20 @@ export default class Transactions extends Command {
     type: Flags.string({
       char: 't',
       description: 'Transaction type to filter',
+    }),
+    parentCategory: Flags.string({
+      char: 'p',
+      description: 'Parent category to filter transactions',
+      options: ['professional services', 'household', 'lifestyle', 'appearance', 'transport', 'food', 'housing', 'education', 'health', 'utilities'],
+    }),
+    merchant: Flags.string({
+      char: 'm',
+      description: 'Merchant name to filter transactions',
+    }),
+    details: Flags.boolean({
+      char: 'd',
+      description: 'Show detailed transaction info',
+      default: false,
     }),
   };
 
@@ -153,6 +170,22 @@ export default class Transactions extends Command {
         );
       }
 
+      // New filter: filter by parentCategory if provided
+      if (flags.parentCategory) {
+        const parentCategoryFilter = flags.parentCategory.toLowerCase();
+        filteredTransactions = filteredTransactions.filter(transaction =>
+          transaction.parentCategory.toLowerCase().includes(parentCategoryFilter)
+        );
+      }
+
+      // New filter: filter by merchant if provided
+      if (flags.merchant) {
+        const merchantFilter = flags.merchant.toLowerCase();
+        filteredTransactions = filteredTransactions.filter(transaction =>
+          transaction.merchant.toLowerCase().includes(merchantFilter)
+        );
+      }
+
       // Filter by transaction ID or description if provided as an argument
       if (args.transaction) {
         const transactionFilter = args.transaction.toLowerCase();
@@ -168,7 +201,19 @@ export default class Transactions extends Command {
           ...transaction,
           date: transaction.date.toLocaleDateString(),
         }));
-        formatOutput(formattedTransactions, format);
+        
+        // If output is table and details is false, show a lean view
+        const displayData = (format.toLowerCase() === 'table' && !flags.details)
+          ? formattedTransactions.map(t => ({
+              date: t.date,
+              account: t.accountName,
+              amount: t.amount,
+              description: t.description,
+              category: t.category,
+            }))
+          : formattedTransactions;
+        
+        formatOutput(displayData, format);
       } else {
         this.error('No transactions found matching your criteria.');
       }

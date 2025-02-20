@@ -113,8 +113,7 @@ export default class Accounts extends Command {
         if (format.toLowerCase() === 'table') {
           const totalAccounts = sortedAccounts.length;
           const totalBalance = sortedAccounts.reduce((sum, acc) => sum + acc.balance, 0);
-          const averageBalance = totalBalance / totalAccounts;
-          console.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(2)} | Average Balance: $${averageBalance.toFixed(2)}`);
+          console.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(2)}\n`);
         }
       } else {
         this.error('No accounts found matching your criteria.');

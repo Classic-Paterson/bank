@@ -6,6 +6,7 @@ import { Input, stringify } from 'csv-stringify/sync';
 export function formatOutput(data: any, format: string): void {
     switch (format.toLowerCase()) {
         case 'json': {
+            console.log(JSON.stringify(data, null, 2));
             break;
         }
 

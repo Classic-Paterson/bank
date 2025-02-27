@@ -139,7 +139,7 @@ FLAGS
                                  ducation|health|utilities>
   -s, --since=<value>            Start date for transactions (YYYY-MM-DD)
   -t, --type=<value>             Transaction type to filter
-  -u, --until=<value>            [default: 2025-02-20] End date for transactions (YYYY-MM-DD)
+  -u, --until=<value>            [default: 2025-02-25] End date for transactions (YYYY-MM-DD)
       --maxAmount=<value>        Maximum transaction amount
       --minAmount=<value>        Minimum transaction amount
 

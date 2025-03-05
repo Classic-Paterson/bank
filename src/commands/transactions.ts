@@ -227,6 +227,10 @@ export default class Transactions extends Command {
             if (category) {
               acc[category] = (acc[category] || 0) + Number(tx.amount);
             }
+            else {
+              // if no category then add to 'Uncategorized'
+              acc['Uncategorized'] = (acc['Uncategorized'] || 0) + Number(tx.amount);
+            }
             return acc;
           }, {});
           // Calculate total spending (absolute amounts)

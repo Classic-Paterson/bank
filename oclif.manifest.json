@@ -89,11 +89,23 @@
         "action": {
           "description": "Action to perform (set, get, list, reset)",
           "name": "action",
+          "options": [
+            "set",
+            "get",
+            "list",
+            "reset"
+          ],
           "required": true
         },
         "key": {
           "description": "Setting key",
           "name": "key",
+          "options": [
+            "api_key",
+            "app_token",
+            "format",
+            "cacheData"
+          ],
           "required": false
         },
         "value": {
@@ -104,12 +116,23 @@
       },
       "description": "Configure CLI preferences",
       "examples": [
-        "$ bank settings set api_key your_api_key",
-        "$ bank settings get api_key",
         "$ bank settings list",
-        "$ bank settings reset api_key"
+        "$ bank settings set api_key your_api_key",
+        "$ bank settings set format table",
+        "$ bank settings set cacheData true",
+        "$ bank settings get api_key",
+        "$ bank settings reset api_key",
+        "$ bank settings --help"
       ],
-      "flags": {},
+      "flags": {
+        "help": {
+          "char": "h",
+          "description": "Show available settings",
+          "name": "help",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
       "hasDynamicHelp": false,
       "hiddenAliases": [],
       "id": "settings",
@@ -201,7 +224,7 @@
           "char": "u",
           "description": "End date for transactions (YYYY-MM-DD)",
           "name": "until",
-          "default": "2025-02-27",
+          "default": "2025-03-05",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"

@@ -92,24 +92,33 @@ Configure CLI preferences
 
 ```
 USAGE
-  $ bank settings ACTION [KEY] [VALUE]
+  $ bank settings ACTION [KEY] [VALUE] [-h]
 
 ARGUMENTS
-  ACTION  Action to perform (set, get, list, reset)
-  KEY     Setting key
+  ACTION  (set|get|list|reset) Action to perform (set, get, list, reset)
+  KEY     (api_key|app_token|format|cacheData) Setting key
   VALUE   Value to set
+
+FLAGS
+  -h, --help  Show available settings
 
 DESCRIPTION
   Configure CLI preferences
 
 EXAMPLES
+  $ bank settings list
+
   $ bank settings set api_key your_api_key
+
+  $ bank settings set format table
+
+  $ bank settings set cacheData true
 
   $ bank settings get api_key
 
-  $ bank settings list
-
   $ bank settings reset api_key
+
+  $ bank settings --help
 ```
 
 _See code: [src/commands/settings.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/settings.ts)_
@@ -139,7 +148,7 @@ FLAGS
                                  ducation|health|utilities>
   -s, --since=<value>            Start date for transactions (YYYY-MM-DD)
   -t, --type=<value>             Transaction type to filter
-  -u, --until=<value>            [default: 2025-02-25] End date for transactions (YYYY-MM-DD)
+  -u, --until=<value>            [default: 2025-03-05] End date for transactions (YYYY-MM-DD)
       --maxAmount=<value>        Maximum transaction amount
       --minAmount=<value>        Minimum transaction amount
 

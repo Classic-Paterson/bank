@@ -20,7 +20,7 @@ $ npm install -g bank
 $ bank COMMAND
 running command...
 $ bank (--version)
-bank/1.0.0 darwin-arm64 node-v20.12.1
+bank/1.0.0 darwin-arm64 node-v20.17.0
 $ bank --help [COMMAND]
 USAGE
   $ bank COMMAND
@@ -32,8 +32,11 @@ USAGE
 
 <!-- commands -->
 * [`bank accounts [ACCOUNT]`](#bank-accounts-account)
+* [`bank categories`](#bank-categories)
+* [`bank categorise [MERCHANT]`](#bank-categorise-merchant)
 * [`bank refresh`](#bank-refresh)
 * [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
+* [`bank sync`](#bank-sync)
 * [`bank transactions [TRANSACTION]`](#bank-transactions-transaction)
 * [`bank transfer`](#bank-transfer)
 
@@ -68,6 +71,57 @@ EXAMPLES
 ```
 
 _See code: [src/commands/accounts.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/accounts.ts)_
+
+## `bank categories`
+
+Show spending by parent & detailed category over the last N months
+
+```
+USAGE
+  $ bank categories [-m <value>] [-f json|csv|table]
+
+FLAGS
+  -f, --format=<option>  [default: table] Output format (json, csv, table)
+                         <options: json|csv|table>
+  -m, --months=<value>   [default: 6] Number of months to include (starting with current month)
+
+DESCRIPTION
+  Show spending by parent & detailed category over the last N months
+
+EXAMPLES
+  $ bank categories -m 6
+
+  $ bank categories -m 3 -f csv
+```
+
+_See code: [src/commands/categories.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/categories.ts)_
+
+## `bank categorise [MERCHANT]`
+
+Interactively assign categories to uncategorised transactions and store a merchant map
+
+```
+USAGE
+  $ bank categorise [MERCHANT] [-s <value>] [-u <value>] [-l <value>]
+
+ARGUMENTS
+  MERCHANT  Force categorise only transactions whose merchant includes this string
+
+FLAGS
+  -l, --limit=<value>  Maximum number of transactions to process
+  -s, --since=<value>  Start date (YYYY-MM-DD) to scan for uncategorised transactions
+  -u, --until=<value>  End date (YYYY-MM-DD); defaults to today
+
+DESCRIPTION
+  Interactively assign categories to uncategorised transactions and store a merchant map
+
+EXAMPLES
+  $ bank categorise --since 2024-01-01
+
+  $ bank categorise --limit 20
+```
+
+_See code: [src/commands/categorise.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/categorise.ts)_
 
 ## `bank refresh`
 
@@ -123,6 +177,30 @@ EXAMPLES
 
 _See code: [src/commands/settings.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/settings.ts)_
 
+## `bank sync`
+
+Sync CSV transaction data to a Google Sheets spreadsheet using OAuth2 (User Account)
+
+```
+USAGE
+  $ bank sync [-s <value>] [-o <value>]
+
+FLAGS
+  -o, --oauthClientKey=<value>  [default: /Users/reecepaterson/.bankcli/client_secret.json] Path to the OAuth2 client
+                                secret JSON file (uses GOOGLE_OAUTH_CLIENT_KEY env var if not set)
+  -s, --sheetId=<value>         ID of the Google Sheet to sync to (creates one if not provided)
+
+DESCRIPTION
+  Sync CSV transaction data to a Google Sheets spreadsheet using OAuth2 (User Account)
+
+EXAMPLES
+  $ bank transactions -f csv | bank sync --sheetId <YOUR_SHEET_ID> --oauthClientKey /path/to/client_secret.json
+
+  $ bank transactions -f csv | bank sync --oauthClientKey /path/to/client_secret.json  # (creates a new sheet if none specified)
+```
+
+_See code: [src/commands/sync.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/sync.ts)_
+
 ## `bank transactions [TRANSACTION]`
 
 Access transaction data
@@ -148,7 +226,7 @@ FLAGS
                                  ducation|health|utilities>
   -s, --since=<value>            Start date for transactions (YYYY-MM-DD)
   -t, --type=<value>             Transaction type to filter
-  -u, --until=<value>            [default: 2025-03-05] End date for transactions (YYYY-MM-DD)
+  -u, --until=<value>            [default: 2025-04-30] End date for transactions (YYYY-MM-DD)
       --maxAmount=<value>        Maximum transaction amount
       --minAmount=<value>        Minimum transaction amount
 

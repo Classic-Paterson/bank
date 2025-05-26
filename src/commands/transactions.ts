@@ -103,6 +103,7 @@ export default class Transactions extends Command {
       // Map transactions to desired output format
       const transactions = transactionsDataFiltered.map(transaction => {
         let category = transaction.category?.name ?? '';
+        category = category.replace(/,/g, '');
         const parentCategory = transaction.category?.groups['personal_finance']?.name ?? '';
       
         if (transaction.type === "TRANSFER") {
@@ -223,11 +224,15 @@ export default class Transactions extends Command {
           
           // New: Category Breakdown summary (enhanced), ignoring empty categories
           const categorySummary = filteredTransactions.reduce<Record<string, number>>((acc, tx) => {
+            // Skip transfer types; they net out across user accounts
+            if (tx.type === 'TRANSFER') {
+              return acc;
+            }
+
             const category = tx.parentCategory.toLowerCase().trim();
             if (category) {
               acc[category] = (acc[category] || 0) + Number(tx.amount);
-            }
-            else {
+            } else {
               // if no category then add to 'Uncategorized'
               acc['Uncategorized'] = (acc['Uncategorized'] || 0) + Number(tx.amount);
             }

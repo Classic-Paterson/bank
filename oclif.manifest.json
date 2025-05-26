@@ -60,6 +60,109 @@
         "accounts.js"
       ]
     },
+    "categories": {
+      "aliases": [],
+      "args": {},
+      "description": "Show spending by parent & detailed category over the last N months",
+      "examples": [
+        "$ bank categories -m 6",
+        "$ bank categories -m 3 -f csv"
+      ],
+      "flags": {
+        "months": {
+          "char": "m",
+          "description": "Number of months to include (starting with current month)",
+          "name": "months",
+          "default": 6,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table)",
+          "name": "format",
+          "default": "table",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table"
+          ],
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "categories",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "categories.js"
+      ]
+    },
+    "categorise": {
+      "aliases": [],
+      "args": {
+        "merchant": {
+          "description": "Force categorise only transactions whose merchant includes this string",
+          "name": "merchant",
+          "required": false
+        }
+      },
+      "description": "Interactively assign categories to uncategorised transactions and store a merchant map",
+      "examples": [
+        "$ bank categorise --since 2024-01-01",
+        "$ bank categorise --limit 20"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date (YYYY-MM-DD) to scan for uncategorised transactions",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date (YYYY-MM-DD); defaults to today",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "limit": {
+          "char": "l",
+          "description": "Maximum number of transactions to process",
+          "name": "limit",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "categorise",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "categorise.js"
+      ]
+    },
     "refresh": {
       "aliases": [],
       "args": {},
@@ -148,6 +251,48 @@
         "settings.js"
       ]
     },
+    "sync": {
+      "aliases": [],
+      "args": {},
+      "description": "Sync CSV transaction data to a Google Sheets spreadsheet using OAuth2 (User Account)",
+      "examples": [
+        "$ bank transactions -f csv | bank sync --sheetId <YOUR_SHEET_ID> --oauthClientKey /path/to/client_secret.json",
+        "$ bank transactions -f csv | bank sync --oauthClientKey /path/to/client_secret.json  # (creates a new sheet if none specified)"
+      ],
+      "flags": {
+        "sheetId": {
+          "char": "s",
+          "description": "ID of the Google Sheet to sync to (creates one if not provided)",
+          "name": "sheetId",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "oauthClientKey": {
+          "char": "o",
+          "description": "Path to the OAuth2 client secret JSON file (uses GOOGLE_OAUTH_CLIENT_KEY env var if not set)",
+          "name": "oauthClientKey",
+          "default": "/Users/reecepaterson/.bankcli/client_secret.json",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "sync",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "sync.js"
+      ]
+    },
     "transactions": {
       "aliases": [],
       "args": {
@@ -224,7 +369,7 @@
           "char": "u",
           "description": "End date for transactions (YYYY-MM-DD)",
           "name": "until",
-          "default": "2025-03-05",
+          "default": "2025-04-30",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"

@@ -369,7 +369,7 @@
           "char": "u",
           "description": "End date for transactions (YYYY-MM-DD)",
           "name": "until",
-          "default": "2025-04-30",
+          "default": "2025-05-26",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"

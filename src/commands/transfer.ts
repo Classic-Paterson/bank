@@ -1,7 +1,8 @@
 import { Command, Flags } from '@oclif/core';
-import { initiateTransfer } from '../utils/api.js';
-import { listAccounts, getTransferStatus } from '../utils/api.js';
+import { Account } from 'akahu';
 import ora from "ora";
+
+import { apiService } from '../services/api.service.js';
 
 export default class Transfer extends Command {
   static description = 'Initiate a funds transfer';
@@ -57,9 +58,9 @@ export default class Transfer extends Command {
       // Check if 'from' is an account ID or name
       if (!fromAccountId.startsWith('acc_')) {
         // Assume it's an account name; attempt to find the matching account ID
-        const accounts = await listAccounts();
+        const accounts = await apiService.listAccounts();
 
-        const matchedAccount = accounts.find(account =>
+        const matchedAccount = accounts.find((account: Account) =>
           account.name.toLowerCase() === fromAccountId.toLowerCase()
         );
 
@@ -74,9 +75,9 @@ export default class Transfer extends Command {
       // Check if 'to' is an account ID or name
       if (!toAccountId.startsWith('acc_')) {
         // Assume it's an account name; attempt to find the matching account ID
-        const accounts = await listAccounts();
+        const accounts = await apiService.listAccounts();
 
-        const matchedAccount = accounts.find(account =>
+        const matchedAccount = accounts.find((account: Account) =>
           account.name.toLowerCase() === toAccountId.toLowerCase()
         );
 
@@ -90,7 +91,7 @@ export default class Transfer extends Command {
 
       this.log(`Initiating transfer of $${amount.toFixed(2)} from account ${fromAccountId} to ${toAccountId}...`);
 
-      const transferId = await initiateTransfer({
+      const transferId = await apiService.initiateTransfer({
         fromAccountId,
         toAccountId,
         amount,
@@ -99,12 +100,12 @@ export default class Transfer extends Command {
       });
 
       // check the status of the transfer and keep it loading until it is completed
-      let transferResponse = await getTransferStatus(transferId);
+      let transferResponse = await apiService.getTransferStatus(transferId);
       const spinner = ora('Transfer is still pending...').start();
 
       while (transferResponse.status !== "SENT") {
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 2 seconds
-        transferResponse = await getTransferStatus(transferId);
+        transferResponse = await apiService.getTransferStatus(transferId);
 
       }
       spinner.stop();

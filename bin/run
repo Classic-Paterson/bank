@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-// If no command is provided, default to "--help"
-if (process.argv.length <= 2) {
-    process.argv.push('--help');
-}
-// ...existing code to run the CLI (e.g., oclif bootstrap)...
-require('../lib').run();
+
+import { execute } from '@oclif/core'
+
+await execute({ dir: import.meta.url })

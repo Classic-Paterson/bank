@@ -1,13 +1,6 @@
 import { Args, Command, Flags } from '@oclif/core';
-import { getConfig, setConfig, resetConfig, getAllConfig } from '../utils/config.js';
-
-// Define the interface for settings
-interface SettingDefinition {
-  description: string;
-  type: string;
-  options?: string[];
-  default?: any;
-}
+import { configService } from '../services/config.service.js';
+import { SettingDefinition } from '../types/index.js';
 
 // Define the valid settings that can be configured
 const VALID_SETTINGS: Record<string, SettingDefinition> = {
@@ -95,7 +88,7 @@ export default class Settings extends Command {
             // Validate the value based on the setting type
             const processedValue = this.validateAndProcessValue(key, value);
             if (processedValue !== undefined) {
-              setConfig(key, processedValue);
+              configService.set(key, processedValue);
               this.log(`Setting '${key}' updated to '${processedValue}'.`);
             }
           }
@@ -110,7 +103,7 @@ export default class Settings extends Command {
               return;
             }
             
-            const configValue = getConfig(key);
+            const configValue = configService.get(key);
             if (configValue !== undefined) {
               this.log(`${key}: ${configValue}`);
             } else {
@@ -125,7 +118,7 @@ export default class Settings extends Command {
           break;
 
         case 'list': {
-          const config = getAllConfig();
+          const config = configService.getAll();
           this.log('Available settings:');
           
           // Display all valid settings with their current values or defaults
@@ -153,7 +146,7 @@ export default class Settings extends Command {
               return;
             }
             
-            resetConfig(key);
+            configService.reset(key);
             const defaultValue = VALID_SETTINGS[key]?.default;
             if (defaultValue !== undefined) {
               this.log(`Setting '${key}' has been reset to default value: ${defaultValue}`);

@@ -1,5 +1,5 @@
 import { Command } from '@oclif/core';
-import { refreshUserData } from '../utils/api.js';
+import { apiService } from '../services/api.service.js';
 
 export default class Refresh extends Command {
   static description = 'Trigger a data refresh for all linked accounts';
@@ -11,7 +11,7 @@ export default class Refresh extends Command {
   async run() {
     try {
       this.log('Initiating data refresh for all linked accounts...');
-      await refreshUserData();
+      await apiService.refreshUserData();
       this.log('Data refresh initiated successfully.');
     } catch (error: any) {
       this.error(`Error initiating data refresh: ${error.message}`);

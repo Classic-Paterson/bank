@@ -60,12 +60,15 @@
   },
   "repository": "lab/bank",
   "scripts": {
-    "build": "shx rm -rf dist && tsc -b",
+    "build": "shx rm -rf dist && shx rm -f tsconfig.tsbuildinfo && tsc -b",
+    "docs": "npm run build && oclif manifest && oclif readme",
+    "link-local": "./scripts/link-local.sh",
     "lint": "eslint . --ext .ts",
     "postpack": "shx rm -f oclif.manifest.json",
     "posttest": "npm run lint",
-    "prepack": "oclif manifest && oclif readme",
+    "prepack": "npm run build && oclif manifest && oclif readme",
     "test": "mocha --forbid-only \"test/**/*.test.ts\"",
+    "unlink-local": "npm unlink -g bank",
     "version": "oclif readme && git add README.md"
   },
   "types": "dist/index.d.ts"

@@ -1,7 +1,10 @@
 import { Args, Command, Flags } from '@oclif/core';
+import { Account } from 'akahu';
+
 import { formatOutput } from '../utils/output.js';
-import { listAccounts } from '../utils/api.js';
-import { getConfig } from '../utils/config.js';
+import { apiService } from '../services/api.service.js';
+import { configService } from '../services/config.service.js';
+import { AccountSummary } from '../types/index.js';
 
 export default class Accounts extends Command {
   static description = 'View account information';
@@ -37,17 +40,17 @@ export default class Accounts extends Command {
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Accounts);
 
-    const format = flags.format ?? getConfig('format') ?? 'json';
+    const format = flags.format ?? configService.get('format') ?? 'json';
     const typeFilter = flags.type?.toLowerCase();
 
     try {
-      const rawAccounts = await listAccounts();
+      const rawAccounts = await apiService.listAccounts();
 
       // Map accounts based on the details flag
-      const accounts = flags.details
-        ? rawAccounts.map(account => ({
+      const accounts: AccountSummary[] = flags.details
+        ? rawAccounts.map((account: Account) => ({
             id: account._id,
-            accountNumber: account.formatted_account,
+            accountNumber: account.formatted_account ?? '',
             name: account.name,
             type: account.type,
             institution: account.connection.name,
@@ -60,8 +63,8 @@ export default class Accounts extends Command {
                   ? `Returns: $${Number(account.meta?.breakdown?.returns ?? 0).toFixed(2)}`
                   : '',
           }))
-        : rawAccounts.map(account => ({
-            accountNumber: account.formatted_account,
+        : rawAccounts.map((account: Account) => ({
+            accountNumber: account.formatted_account ?? '',
             name: account.name,
             type: account.type,
             institution: account.connection.name,
@@ -71,14 +74,14 @@ export default class Accounts extends Command {
       let filteredAccounts = accounts;
 
       if (args.account) {
-        filteredAccounts = filteredAccounts.filter(account =>
+        filteredAccounts = filteredAccounts.filter((account: AccountSummary) =>
           account.accountNumber === args.account ||
           account.name.toLowerCase().includes(args.account?.toLowerCase() ?? '')
         );
       }
 
       if (typeFilter) {
-        filteredAccounts = filteredAccounts.filter(account =>
+        filteredAccounts = filteredAccounts.filter((account: AccountSummary) =>
           account.type.toLowerCase().includes(typeFilter)
         );
       }
@@ -87,18 +90,18 @@ export default class Accounts extends Command {
       // (Grouping helps provide a more organized summary for the basic view.)
       let sortedAccounts = filteredAccounts;
       if (!flags.details) {
-        const groupedAccounts = filteredAccounts.reduce((groups, account) => {
+        const groupedAccounts = filteredAccounts.reduce((groups: Record<string, AccountSummary[]>, account: AccountSummary) => {
           const type = account.type;
           if (!groups[type]) {
             groups[type] = [];
           }
           groups[type].push(account);
           return groups;
-        }, {} as Record<string, typeof filteredAccounts>);
+        }, {} as Record<string, AccountSummary[]>);
 
         // Sort each group by balance in descending order
         for (const type in groupedAccounts) {
-          groupedAccounts[type].sort((a, b) => b.balance - a.balance);
+          groupedAccounts[type].sort((a: AccountSummary, b: AccountSummary) => b.balance - a.balance);
         }
 
         // Flatten the grouped and sorted accounts for output
@@ -110,7 +113,7 @@ export default class Accounts extends Command {
 
         if (format.toLowerCase() === 'table') {
           const totalAccounts = sortedAccounts.length;
-          const totalBalance = sortedAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+          const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
           console.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(2)}\n`);
         }
       } else {

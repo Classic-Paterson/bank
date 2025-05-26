@@ -1,9 +1,12 @@
 import { Args, Command, Flags } from '@oclif/core';
+import { EnrichedTransaction } from 'akahu';
 
-import { listAccounts, listAllTransactions } from '../utils/api.js';
-import { getConfig } from '../utils/config.js';
 import { formatOutput } from '../utils/output.js';
-import { getCacheData, updateCache } from '../utils/cache.js';
+import { apiService } from '../services/api.service.js';
+import { configService } from '../services/config.service.js';
+import { cacheService } from '../services/cache.service.js';
+import { transactionProcessingService } from '../services/transaction-processing.service.js';
+import { FormattedTransaction } from '../types/index.js';
 
 export default class Transactions extends Command {
   static override args = {
@@ -75,8 +78,8 @@ export default class Transactions extends Command {
 
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Transactions);
-    const format = flags.format ?? getConfig('format') ?? 'json';
-    const { lastUpdate } = getCacheData();
+    const format = flags.format ?? configService.get('format') ?? 'json';
+    const { lastUpdate } = cacheService.getCacheData();
     const sinceDate = flags.since ?? lastUpdate?.split('T')[0] ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const untilParsed = new Date(flags.until);
     const sinceParsed = new Date(sinceDate);
@@ -90,53 +93,27 @@ export default class Transactions extends Command {
 
     try {
       // Fetch all transactions within the date range
-      const transactionsData = await listAllTransactions(
+      const transactionsData = await apiService.listAllTransactions(
         sinceDate,
         untilDate,
       );
 
       // Filter transactions explicitly based on sinceDate
-      const transactionsDataFiltered = transactionsData.filter(tx => new Date(tx.date) >= new Date(sinceDate));
+      const transactionsDataFiltered = transactionsData.filter((tx: EnrichedTransaction) => new Date(tx.date) >= new Date(sinceDate));
 
-      const accounts = await listAccounts();
+      const accounts = await apiService.listAccounts();
       
-      // Map transactions to desired output format
-      const transactions = transactionsDataFiltered.map(transaction => {
-        let category = transaction.category?.name ?? '';
-        category = category.replace(/,/g, '');
-        const parentCategory = transaction.category?.groups['personal_finance']?.name ?? '';
-      
-        if (transaction.type === "TRANSFER") {
-          category = 'Transfer';
-        } else if (transaction.type === "STANDING ORDER") {
-          category = 'Automatic Payment';
-        } else if (transaction.type === "CREDIT" && (transaction.description.toLowerCase().includes("drawings") || transaction.description.toLowerCase().includes("salary"))) {
-          category = 'Income';
-        }
-      
-        return {
-          date: new Date(transaction.date),
-          accountName: accounts.find(account => account._id === transaction._account)?.name ?? '',
-          amount: transaction.amount,
-          particulars: transaction.meta?.particulars ?? '',
-          description: transaction.description,
-          merchant: transaction.merchant?.name ?? '',
-          parentCategory: parentCategory,
-          category: category,
-          type: transaction.type,
-          accountNumber: accounts.find(account => account._id === transaction._account)?.formatted_account ?? '',
-          id: transaction._id,
-        };
-      });
+      // Map transactions to desired output format using the service
+      const transactions = transactionProcessingService.formatTransactions(transactionsDataFiltered, accounts);
 
       // Sort transactions by date
-      transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
+      transactions.sort((a: FormattedTransaction, b: FormattedTransaction) => a.date.getTime() - b.date.getTime());
 
       let filteredTransactions = transactions;
 
       // Filter by account ID if provided
       if (flags.account) {
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.accountNumber === flags.account || transaction.accountName.toLowerCase() === (flags.account ?? '').toLowerCase()
         );
       }
@@ -144,21 +121,21 @@ export default class Transactions extends Command {
       // Filter by category if provided
       if (flags.category) {
         const categoryFilter = flags.category.toLowerCase();
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.category.toLowerCase().includes(categoryFilter)
         );
       }
 
       // Filter by minimum amount if provided
       if (flags.minAmount !== undefined) {
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.amount >= (flags.minAmount ?? 0)
         );
       }
 
       // Filter by maximum amount if provided
       if (flags.maxAmount !== undefined) {
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.amount <= (flags.maxAmount ?? Number.POSITIVE_INFINITY)
         );
       }
@@ -166,7 +143,7 @@ export default class Transactions extends Command {
       // Filter by transaction type if provided
       if (flags.type) {
         const typeFilter = flags.type.toLowerCase();
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.type.toLowerCase() === typeFilter
         );
       }
@@ -174,7 +151,7 @@ export default class Transactions extends Command {
       // New filter: filter by parentCategory if provided
       if (flags.parentCategory) {
         const parentCategoryFilter = flags.parentCategory.toLowerCase();
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.parentCategory.toLowerCase().includes(parentCategoryFilter)
         );
       }
@@ -182,7 +159,7 @@ export default class Transactions extends Command {
       // New filter: filter by merchant if provided
       if (flags.merchant) {
         const merchantFilter = flags.merchant.toLowerCase();
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.merchant.toLowerCase().includes(merchantFilter)
         );
       }
@@ -190,7 +167,7 @@ export default class Transactions extends Command {
       // Filter by transaction ID or description if provided as an argument
       if (args.transaction) {
         const transactionFilter = args.transaction.toLowerCase();
-        filteredTransactions = filteredTransactions.filter(transaction =>
+        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
           transaction.id === args.transaction ||
           transaction.description.toLowerCase().includes(transactionFilter)
         );
@@ -198,14 +175,14 @@ export default class Transactions extends Command {
 
       if (filteredTransactions.length > 0) {
         // Format the date for display
-        const formattedTransactions = filteredTransactions.map(transaction => ({
+        const formattedTransactions = filteredTransactions.map((transaction: FormattedTransaction) => ({
           ...transaction,
           date: transaction.date.toLocaleDateString(),
         }));
         
         // If output is table and details is false, show a lean view
         const displayData = (format.toLowerCase() === 'table' && !flags.details)
-          ? formattedTransactions.map(t => ({
+          ? formattedTransactions.map((t) => ({
               date: t.date,
               account: t.accountName,
               amount: t.amount,
@@ -219,11 +196,11 @@ export default class Transactions extends Command {
         if (format.toLowerCase() === 'table' && flags.details) {
           // Existing summary
           const totalTransactions = filteredTransactions.length;
-          const totalAmount = filteredTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+          const totalAmount = filteredTransactions.reduce((sum: number, tx: FormattedTransaction) => sum + Number(tx.amount), 0);
           console.log(`\nSummary: Total Transactions: ${totalTransactions} | Total Amount: $${totalAmount.toFixed(2)}\n`);
           
           // New: Category Breakdown summary (enhanced), ignoring empty categories
-          const categorySummary = filteredTransactions.reduce<Record<string, number>>((acc, tx) => {
+          const categorySummary = filteredTransactions.reduce<Record<string, number>>((acc: Record<string, number>, tx: FormattedTransaction) => {
             // Skip transfer types; they net out across user accounts
             if (tx.type === 'TRANSFER') {
               return acc;
@@ -239,7 +216,7 @@ export default class Transactions extends Command {
             return acc;
           }, {});
           // Calculate total spending (absolute amounts)
-          const totalSpending = Object.values(categorySummary).reduce((sum, amt) => sum + Math.abs(amt), 0);
+          const totalSpending = Object.values(categorySummary).reduce((sum: number, amt: number) => sum + Math.abs(amt), 0);
           console.log('Category Breakdown:');
           // Sort categories by absolute amount descending
           Object.entries(categorySummary)
@@ -254,7 +231,7 @@ export default class Transactions extends Command {
         this.error('No transactions found matching your criteria.');
       }
 
-      updateCache(transactionsData);
+      cacheService.updateCache(transactionsData);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

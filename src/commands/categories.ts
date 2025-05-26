@@ -1,6 +1,7 @@
 import { Command, Flags } from '@oclif/core';
+import { EnrichedTransaction } from 'akahu';
 
-import { listAllTransactions } from '../utils/api.js';
+import { apiService } from '../services/api.service.js';
 import { formatOutput } from '../utils/output.js';
 
 export default class Categories extends Command {
@@ -41,9 +42,9 @@ export default class Categories extends Command {
     const until = untilDate.toISOString().split('T')[0];
 
     // Fetch all transactions in that window
-    let transactions;
+    let transactions: EnrichedTransaction[];
     try {
-      transactions = await listAllTransactions(since, until);
+      transactions = await apiService.listAllTransactions(since, until);
     } catch (error: any) {
       this.error(`Error fetching transactions: ${error.message}`);
       return;

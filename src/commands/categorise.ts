@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Args, Command, Flags } from '@oclif/core';
+import { EnrichedTransaction } from 'akahu';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
 
-import { listAllTransactions } from '../utils/api.js';
-import { upsertMerchantCategory, loadMerchantMap } from '../utils/merchant_map.js';
+import { apiService } from '../services/api.service.js';
+import { merchantMappingService } from '../services/merchant-mapping.service.js';
 
 // Load NZFCC categories data once
 const nzfccPath = path.resolve('nzfcc_categories.json');
@@ -53,22 +54,22 @@ export default class Categorise extends Command {
 
     this.log(`Scanning transactions ${since} → ${until} …`);
 
-    let txs;
+    let txs: EnrichedTransaction[];
     try {
-      txs = await listAllTransactions(since, until);
+      txs = await apiService.listAllTransactions(since, until);
     } catch (error: any) {
       this.error(`Error fetching transactions: ${error.message}`);
       return;
     }
 
-    const map = loadMerchantMap();
+    const map = merchantMappingService.loadMerchantMap();
 
     // Filter to uncategorised & non-transfer
-    let uncategorised = txs.filter(t => t.type !== 'TRANSFER' && (!t.category?.name || !t.category?.groups?.['personal_finance']?.name));
+    let uncategorised = txs.filter((t: EnrichedTransaction) => t.type !== 'TRANSFER' && (!t.category?.name || !t.category?.groups?.['personal_finance']?.name));
 
     if (args.merchant) {
       const key = args.merchant.toLowerCase();
-      uncategorised = uncategorised.filter(t => (t.merchant?.name ?? '').toLowerCase().includes(key));
+      uncategorised = uncategorised.filter((t: EnrichedTransaction) => (t.merchant?.name ?? '').toLowerCase().includes(key));
     }
 
     if (!uncategorised.length) {
@@ -86,7 +87,7 @@ export default class Categorise extends Command {
     this.log('All done. Future runs will auto-categorise these merchants.');
   }
 
-  private async processTx(tx: any, map: Record<string, any>) {
+  private async processTx(tx: EnrichedTransaction, map: Record<string, any>) {
     const merchantKey = normalise(tx.merchant?.name ?? tx.description);
     if (map[merchantKey]) {
       // Already mapped; nothing to do.
@@ -130,7 +131,7 @@ export default class Categorise extends Command {
     }
 
     if (selected) {
-      upsertMerchantCategory(merchantKey, selected);
+      merchantMappingService.upsertMerchantCategory(merchantKey, selected);
       this.log(`Mapped '${tx.merchant?.name ?? merchantKey}' → ${selected.parent}/${selected.category}`);
     } else {
       this.log('Skipped.');

@@ -7,22 +7,25 @@ Interact with your financial data directly from the command line using the Akahu
 [![Downloads/week](https://img.shields.io/npm/dw/bank.svg)](https://npmjs.org/package/bank)
 
 <!-- toc -->
-
-- [bank](#bank)
-- [Usage](#usage)
-- [Post-install](#post-install)
-- [For zsh (most macOS users)](#for-zsh-most-macos-users)
-- [For bash](#for-bash)
-- [For PowerShell](#for-powershell)
-- [Output accounts as NDJSON for processing with jq](#output-accounts-as-ndjson-for-processing-with-jq)
-- [Stream transactions to a file for processing](#stream-transactions-to-a-file-for-processing)
-- [Commands](#commands)
+* [bank](#bank)
+* [Usage](#usage)
+* [Post-install](#post-install)
+* [For zsh (most macOS users)](#for-zsh-most-macos-users)
+* [For bash](#for-bash)
+* [For PowerShell](#for-powershell)
+* [Output accounts as NDJSON for processing with jq](#output-accounts-as-ndjson-for-processing-with-jq)
+* [Stream transactions to a file for processing](#stream-transactions-to-a-file-for-processing)
+* [Preview a transfer without executing (safe to test)](#preview-a-transfer-without-executing-safe-to-test)
+* [Execute a transfer after manual confirmation](#execute-a-transfer-after-manual-confirmation)
+* [Set allowed destination accounts](#set-allowed-destination-accounts)
+* [View current allowlist](#view-current-allowlist)
+* [Clear allowlist (allows transfers to any account)](#clear-allowlist-allows-transfers-to-any-account)
+* [Commands](#commands)
 <!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g bank
 $ bank COMMAND
@@ -34,7 +37,6 @@ USAGE
   $ bank COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 # Post-install
@@ -93,30 +95,81 @@ bank accounts --format ndjson | jq '.name'
 bank transactions --format ndjson > transactions.ndjson
 ```
 
+## Transfer Safety
+
+The `bank transfer` command includes multiple safety features to prevent accidental or unauthorized transfers:
+
+### Required Safety Flags
+
+**All transfer commands require either `--confirm` or `--dry-run`:**
+
+```bash
+# Preview a transfer without executing (safe to test)
+bank transfer --from "My Account" --to 12-3456-7890123-00 --amount 100.00 --dry-run
+
+# Execute a transfer after manual confirmation
+bank transfer --from "My Account" --to 12-3456-7890123-00 --amount 100.00 --confirm
+```
+
+### Transfer Summary
+
+Before any transfer executes, you'll see a detailed summary with:
+- Source account (name and masked account number)
+- Destination account (masked for security)
+- Exact transfer amount
+- Description and reference (if provided)
+
+### Interactive Confirmation
+
+When using `--confirm`, you must explicitly confirm the transfer after reviewing the summary. **This action cannot be undone.**
+
+### Optional Allowlist
+
+For additional security, configure an allowlist of trusted destination accounts:
+
+```bash
+# Set allowed destination accounts
+bank settings set transferAllowlist "12-3456-7890123-00,98-7654-3210987-00"
+
+# View current allowlist
+bank settings get transferAllowlist
+
+# Clear allowlist (allows transfers to any account)
+bank settings reset transferAllowlist
+```
+
+When an allowlist is configured, transfers to unlisted accounts will be blocked.
+
+### Data Protection
+
+- All sensitive data is masked in logs and error messages
+- Account IDs and numbers are partially redacted in output
+- Transfer amounts are masked in error logs
+- Full account details are never stored in plain text logs
+
 # Commands
 
 <!-- commands -->
-
-- [`bank accounts [ACCOUNT]`](#bank-accounts-account)
-- [`bank autocomplete [SHELL]`](#bank-autocomplete-shell)
-- [`bank categories`](#bank-categories)
-- [`bank categorise [MERCHANT]`](#bank-categorise-merchant)
-- [`bank help [COMMAND]`](#bank-help-command)
-- [`bank plugins`](#bank-plugins)
-- [`bank plugins:add PLUGIN`](#bank-pluginsadd-plugin)
-- [`bank plugins:inspect PLUGIN...`](#bank-pluginsinspect-plugin)
-- [`bank plugins:install PLUGIN`](#bank-pluginsinstall-plugin)
-- [`bank plugins:link PATH`](#bank-pluginslink-path)
-- [`bank plugins:remove [PLUGIN]`](#bank-pluginsremove-plugin)
-- [`bank plugins:reset`](#bank-pluginsreset)
-- [`bank plugins:uninstall [PLUGIN]`](#bank-pluginsuninstall-plugin)
-- [`bank plugins:unlink [PLUGIN]`](#bank-pluginsunlink-plugin)
-- [`bank plugins:update`](#bank-pluginsupdate)
-- [`bank refresh`](#bank-refresh)
-- [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
-- [`bank sync`](#bank-sync)
-- [`bank transactions [TRANSACTION]`](#bank-transactions-transaction)
-- [`bank transfer`](#bank-transfer)
+* [`bank accounts [ACCOUNT]`](#bank-accounts-account)
+* [`bank autocomplete [SHELL]`](#bank-autocomplete-shell)
+* [`bank categories`](#bank-categories)
+* [`bank categorise [MERCHANT]`](#bank-categorise-merchant)
+* [`bank help [COMMAND]`](#bank-help-command)
+* [`bank plugins`](#bank-plugins)
+* [`bank plugins:add PLUGIN`](#bank-pluginsadd-plugin)
+* [`bank plugins:inspect PLUGIN...`](#bank-pluginsinspect-plugin)
+* [`bank plugins:install PLUGIN`](#bank-pluginsinstall-plugin)
+* [`bank plugins:link PATH`](#bank-pluginslink-path)
+* [`bank plugins:remove [PLUGIN]`](#bank-pluginsremove-plugin)
+* [`bank plugins:reset`](#bank-pluginsreset)
+* [`bank plugins:uninstall [PLUGIN]`](#bank-pluginsuninstall-plugin)
+* [`bank plugins:unlink [PLUGIN]`](#bank-pluginsunlink-plugin)
+* [`bank plugins:update`](#bank-pluginsupdate)
+* [`bank refresh`](#bank-refresh)
+* [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
+* [`bank sync`](#bank-sync)
+* [`bank transactions [TRANSACTION]`](#bank-transactions-transaction)
+* [`bank transfer`](#bank-transfer)
 
 ## `bank accounts [ACCOUNT]`
 
@@ -569,7 +622,7 @@ USAGE
 
 ARGUMENTS
   ACTION  (set|get|list|reset) Action to perform (set, get, list, reset)
-  KEY     (api_key|app_token|format|cacheData) Setting key
+  KEY     (api_key|app_token|format|cacheData|transferAllowlist) Setting key
   VALUE   Value to set
 
 FLAGS
@@ -676,28 +729,31 @@ _See code: [src/commands/transactions.ts](https://github.com/lab/bank/blob/v1.0.
 
 ## `bank transfer`
 
-Initiate a funds transfer
+Initiate a funds transfer with safety features
 
 ```
 USAGE
-  $ bank transfer -f <value> -t <value> -a <value> [-d <value>] [-r <value>]
+  $ bank transfer -f <value> -t <value> -a <value> [-d <value>] [-r <value>] [-c] [--dry-run]
 
 FLAGS
   -a, --amount=<value>       (required) Amount to transfer (in NZD)
+  -c, --confirm              Confirm the transfer after reviewing the summary (REQUIRED for actual transfers)
   -d, --description=<value>  Transfer description
   -f, --from=<value>         (required) Source account ID or name
   -r, --reference=<value>    Transfer reference
   -t, --to=<value>           (required) Destination account number (e.g., 12-3456-7890123-00)
+      --dry-run              Show transfer summary without executing (overrides --confirm)
 
 DESCRIPTION
-  Initiate a funds transfer
+  Initiate a funds transfer with safety features
 
 EXAMPLES
-  $ bank transfer --from "Everyday Checking" --to 12-3456-7890123-00 --amount 100.00
+  $ bank transfer --from "Everyday Checking" --to 12-3456-7890123-00 --amount 100.00 --confirm
 
-  $ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --description "Payment for services" --reference "Invoice 123"
+  $ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --description "Payment" --reference "Invoice 123" --confirm
+
+  $ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --dry-run
 ```
 
 _See code: [src/commands/transfer.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/transfer.ts)_
-
 <!-- commandsstop -->

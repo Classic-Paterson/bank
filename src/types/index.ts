@@ -11,6 +11,7 @@ export interface AppConfig {
   userToken?: string;
   format?: OutputFormat;
   cacheData?: boolean;
+  transferAllowlist?: string[];
   [key: string]: any;
 }
 
@@ -68,7 +69,7 @@ export interface CategoryAggregation {
 // Settings types
 export interface SettingDefinition {
   description: string;
-  type: 'string' | 'boolean' | 'number';
+  type: 'string' | 'boolean' | 'number' | 'array';
   options?: string[];
   default?: any;
 }

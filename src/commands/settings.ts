@@ -22,6 +22,11 @@ const VALID_SETTINGS: Record<string, SettingDefinition> = {
     description: 'Whether to cache API responses locally',
     type: 'boolean',
     default: false
+  },
+  transferAllowlist: {
+    description: 'Comma-separated list of allowed destination account numbers for transfers (for safety)',
+    type: 'array',
+    default: []
   }
 };
 
@@ -89,7 +94,8 @@ export default class Settings extends Command {
             const processedValue = this.validateAndProcessValue(key, value);
             if (processedValue !== undefined) {
               configService.set(key, processedValue);
-              this.log(`Setting '${key}' updated to '${processedValue}'.`);
+              const displayValue = Array.isArray(processedValue) ? processedValue.join(', ') : processedValue;
+              this.log(`Setting '${key}' updated to '${displayValue}'.`);
             }
           }
           break;
@@ -105,11 +111,13 @@ export default class Settings extends Command {
             
             const configValue = configService.get(key);
             if (configValue !== undefined) {
-              this.log(`${key}: ${configValue}`);
+              const displayValue = Array.isArray(configValue) ? configValue.join(', ') : configValue;
+              this.log(`${key}: ${displayValue}`);
             } else {
               const defaultValue = VALID_SETTINGS[key]?.default;
               if (defaultValue !== undefined) {
-                this.log(`${key}: ${defaultValue} (default)`);
+                const displayDefault = Array.isArray(defaultValue) ? defaultValue.join(', ') : defaultValue;
+                this.log(`${key}: ${displayDefault} (default)`);
               } else {
                 this.log(`Setting '${key}' is not set.`);
               }
@@ -127,9 +135,11 @@ export default class Settings extends Command {
             const defaultValue = settingInfo.default;
             
             if (currentValue !== undefined) {
-              this.log(`${settingKey}: ${currentValue} (${settingInfo.description})`);
+              const displayValue = Array.isArray(currentValue) ? currentValue.join(', ') : currentValue;
+              this.log(`${settingKey}: ${displayValue} (${settingInfo.description})`);
             } else if (defaultValue !== undefined) {
-              this.log(`${settingKey}: ${defaultValue} (default, ${settingInfo.description})`);
+              const displayDefault = Array.isArray(defaultValue) ? defaultValue.join(', ') : defaultValue;
+              this.log(`${settingKey}: ${displayDefault} (default, ${settingInfo.description})`);
             } else {
               this.log(`${settingKey}: not set (${settingInfo.description})`);
             }
@@ -149,7 +159,8 @@ export default class Settings extends Command {
             configService.reset(key);
             const defaultValue = VALID_SETTINGS[key]?.default;
             if (defaultValue !== undefined) {
-              this.log(`Setting '${key}' has been reset to default value: ${defaultValue}`);
+              const displayDefault = Array.isArray(defaultValue) ? defaultValue.join(', ') : defaultValue;
+              this.log(`Setting '${key}' has been reset to default value: ${displayDefault}`);
             } else {
               this.log(`Setting '${key}' has been reset.`);
             }
@@ -204,6 +215,12 @@ export default class Settings extends Command {
         this.error(`Invalid boolean value for '${key}'. Use true/false, yes/no, or 1/0.`);
         return undefined;
       }
+    } else if (setting.type === 'array') {
+      // Handle array conversion (comma-separated values)
+      if (value.trim() === '') {
+        return [];
+      }
+      return value.split(',').map(item => item.trim()).filter(item => item.length > 0);
     } else if (setting.type === 'string' && setting.options) {
       // Handle enum string values
       if (!setting.options.includes(value)) {

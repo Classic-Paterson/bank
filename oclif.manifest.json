@@ -211,7 +211,8 @@
             "api_key",
             "app_token",
             "format",
-            "cacheData"
+            "cacheData",
+            "transferAllowlist"
           ],
           "required": false
         },
@@ -442,10 +443,11 @@
     "transfer": {
       "aliases": [],
       "args": {},
-      "description": "Initiate a funds transfer",
+      "description": "Initiate a funds transfer with safety features",
       "examples": [
-        "$ bank transfer --from \"Everyday Checking\" --to 12-3456-7890123-00 --amount 100.00",
-        "$ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --description \"Payment for services\" --reference \"Invoice 123\""
+        "$ bank transfer --from \"Everyday Checking\" --to 12-3456-7890123-00 --amount 100.00 --confirm",
+        "$ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --description \"Payment\" --reference \"Invoice 123\" --confirm",
+        "$ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --dry-run"
       ],
       "flags": {
         "from": {
@@ -490,6 +492,21 @@
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
+        },
+        "confirm": {
+          "char": "c",
+          "description": "Confirm the transfer after reviewing the summary (REQUIRED for actual transfers)",
+          "name": "confirm",
+          "required": false,
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "dry-run": {
+          "description": "Show transfer summary without executing (overrides --confirm)",
+          "name": "dry-run",
+          "required": false,
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,

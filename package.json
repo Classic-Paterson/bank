@@ -9,6 +9,7 @@
   "bugs": "https://github.com/lab/bank/issues",
   "dependencies": {
     "@oclif/core": "^4",
+    "@oclif/plugin-autocomplete": "^3.2.34",
     "@oclif/plugin-help": "^6",
     "@oclif/plugin-plugins": "^5",
     "akahu": "^1.15.3",
@@ -56,7 +57,12 @@
   "oclif": {
     "bin": "bank",
     "dirname": "bank",
-    "commands": "./dist/commands"
+    "commands": "./dist/commands",
+    "plugins": [
+      "@oclif/plugin-help",
+      "@oclif/plugin-plugins",
+      "@oclif/plugin-autocomplete"
+    ]
   },
   "repository": "lab/bank",
   "scripts": {

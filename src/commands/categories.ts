@@ -20,8 +20,8 @@ export default class Categories extends Command {
     }),
     format: Flags.string({
       char: 'f',
-      description: 'Output format (json, csv, table)',
-      options: ['json', 'csv', 'table'],
+      description: 'Output format (json, csv, table, list, ndjson)',
+      options: ['json', 'csv', 'table', 'list', 'ndjson'],
       default: 'table',
     }),
   };

@@ -10,14 +10,24 @@ export function formatOutput(data: any, format: string): void {
             break;
         }
 
+        case 'ndjson': {
+            formatAsNdjson(data);
+            break;
+        }
+
         case 'csv': {
             formatAsCsv(data);
             break;
         }
 
-        case 'table':
-        default: {
+        case 'table': {
             formatAsTable(data);
+            break;
+        }
+
+        case 'list':
+        default: {
+            formatAsList(data);
             break;
         }
     }
@@ -100,6 +110,26 @@ function formatAsCsv(data: any): void {
     }
 }
 
+function formatAsNdjson(data: any): void {
+    if (Array.isArray(data)) {
+        formatArrayAsNdjson(data);
+    } else if (data.months && data.expenses_by_category) {
+        formatExpensesByCategoryAsNdjson(data);
+    } else {
+        console.error('Unsupported data format for NDJSON output');
+    }
+}
+
+function formatAsList(data: any): void {
+    if (Array.isArray(data)) {
+        formatArrayAsList(data);
+    } else if (data.months && data.expenses_by_category) {
+        formatExpensesByCategoryAsList(data);
+    } else {
+        console.error('Unsupported data format for list output');
+    }
+}
+
 function formatArrayAsCsv(data: any[]): void {
     const columns = Object.keys(data[0]);
     const csv = stringify(data, { columns, header: true });
@@ -124,4 +154,61 @@ function formatExpensesByCategoryAsCsv(data: any): void {
 
     const csv = stringify(records, { columns, header: true });
     console.log(csv);
+}
+
+function formatArrayAsList(data: any[]): void {
+    if (data.length === 0) {
+        console.log('No data available');
+        return;
+    }
+
+    for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        console.log(`\n[${i + 1}]`);
+        
+        for (const [key, value] of Object.entries(item)) {
+            let displayValue = value;
+            if ((key === 'balance' || key === 'availableBalance') && typeof value === 'number') {
+                displayValue = `$${value.toFixed(2)}`;
+            }
+            console.log(`  ${key}: ${displayValue}`);
+        }
+    }
+}
+
+function formatExpensesByCategoryAsList(data: any): void {
+    const { expenses_by_category, months } = data;
+
+    console.log('\nExpenses by Category:');
+    
+    for (const category of Object.keys(expenses_by_category)) {
+        console.log(`\n${category}:`);
+        months.forEach((month: number | string) => {
+            const amount = expenses_by_category[category][month] || 0;
+            console.log(`  ${month}: $${amount.toFixed(2)}`);
+        });
+    }
+}
+
+function formatArrayAsNdjson(data: any[]): void {
+    if (data.length === 0) {
+        return;
+    }
+
+    for (const item of data) {
+        console.log(JSON.stringify(item));
+    }
+}
+
+function formatExpensesByCategoryAsNdjson(data: any): void {
+    const { expenses_by_category, months } = data;
+
+    for (const category of Object.keys(expenses_by_category)) {
+        const record: { [key: string]: string | number } = { category };
+        months.forEach((month: number | string) => {
+            const amount = expenses_by_category[category][month] || 0;
+            record[month] = amount;
+        });
+        console.log(JSON.stringify(record));
+    }
 }

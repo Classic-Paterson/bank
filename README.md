@@ -7,14 +7,16 @@ Interact with your financial data directly from the command line using the Akahu
 [![Downloads/week](https://img.shields.io/npm/dw/bank.svg)](https://npmjs.org/package/bank)
 
 <!-- toc -->
-* [bank](#bank)
-* [Usage](#usage)
-* [Commands](#commands)
+
+- [bank](#bank)
+- [Usage](#usage)
+- [Commands](#commands)
 <!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
+
 ```sh-session
 $ npm install -g bank
 $ bank COMMAND
@@ -26,19 +28,48 @@ USAGE
   $ bank COMMAND
 ...
 ```
+
 <!-- usagestop -->
+
+## Output Formats
+
+This application supports multiple output formats for displaying data:
+
+- **json**: Pretty-printed JSON format for human readability
+- **csv**: Comma-separated values format for spreadsheet import
+- **table**: Formatted table display for terminal viewing (default for most commands)
+- **list**: Simple list format for terminal viewing
+- **ndjson**: Newline Delimited JSON format - each object on a separate line as compact JSON
+
+The NDJSON format is particularly useful for:
+
+- Streaming data processing
+- Integration with tools that process line-by-line JSON (like `jq`)
+- Machine parsing where each record should be processed independently
+- Log aggregation systems
+
+Example usage:
+
+```bash
+# Output accounts as NDJSON for processing with jq
+bank accounts --format ndjson | jq '.name'
+
+# Stream transactions to a file for processing
+bank transactions --format ndjson > transactions.ndjson
+```
 
 # Commands
 
 <!-- commands -->
-* [`bank accounts [ACCOUNT]`](#bank-accounts-account)
-* [`bank categories`](#bank-categories)
-* [`bank categorise [MERCHANT]`](#bank-categorise-merchant)
-* [`bank refresh`](#bank-refresh)
-* [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
-* [`bank sync`](#bank-sync)
-* [`bank transactions [TRANSACTION]`](#bank-transactions-transaction)
-* [`bank transfer`](#bank-transfer)
+
+- [`bank accounts [ACCOUNT]`](#bank-accounts-account)
+- [`bank categories`](#bank-categories)
+- [`bank categorise [MERCHANT]`](#bank-categorise-merchant)
+- [`bank refresh`](#bank-refresh)
+- [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
+- [`bank sync`](#bank-sync)
+- [`bank transactions [TRANSACTION]`](#bank-transactions-transaction)
+- [`bank transfer`](#bank-transfer)
 
 ## `bank accounts [ACCOUNT]`
 
@@ -46,15 +77,15 @@ View account information
 
 ```
 USAGE
-  $ bank accounts [ACCOUNT] [-f json|csv|table] [-t <value>] [-d]
+  $ bank accounts [ACCOUNT] [-f json|csv|table|list|ndjson] [-t <value>] [-d]
 
 ARGUMENTS
   ACCOUNT  Account to filter
 
 FLAGS
   -d, --details          Show detailed account info
-  -f, --format=<option>  Output format (json, csv, table)
-                         <options: json|csv|table>
+  -f, --format=<option>  Output format (json, csv, table, list, ndjson)
+                         <options: json|csv|table|list|ndjson>
   -t, --type=<value>     Account type to filter (loan, checking, savings, etc.)
 
 DESCRIPTION
@@ -64,6 +95,8 @@ EXAMPLES
   $ bank accounts
 
   $ bank accounts --format csv
+
+  $ bank accounts --format ndjson
 
   $ bank accounts --type savings
 
@@ -78,11 +111,11 @@ Show spending by parent & detailed category over the last N months
 
 ```
 USAGE
-  $ bank categories [-m <value>] [-f json|csv|table]
+  $ bank categories [-m <value>] [-f json|csv|table|list|ndjson]
 
 FLAGS
-  -f, --format=<option>  [default: table] Output format (json, csv, table)
-                         <options: json|csv|table>
+  -f, --format=<option>  [default: table] Output format (json, csv, table, list, ndjson)
+                         <options: json|csv|table|list|ndjson>
   -m, --months=<value>   [default: 6] Number of months to include (starting with current month)
 
 DESCRIPTION
@@ -92,6 +125,8 @@ EXAMPLES
   $ bank categories -m 6
 
   $ bank categories -m 3 -f csv
+
+  $ bank categories -f ndjson
 ```
 
 _See code: [src/commands/categories.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/categories.ts)_
@@ -207,7 +242,7 @@ Access transaction data
 
 ```
 USAGE
-  $ bank transactions [TRANSACTION] [-a <value>] [-c <value>] [-f json|csv|table] [--maxAmount <value>]
+  $ bank transactions [TRANSACTION] [-a <value>] [-c <value>] [-f json|csv|table|list|ndjson] [--maxAmount <value>]
     [--minAmount <value>] [-s <value>] [-u <value>] [-t <value>] [-p professional
     services|household|lifestyle|appearance|transport|food|housing|education|health|utilities] [-m <value>] [-d]
 
@@ -218,8 +253,8 @@ FLAGS
   -a, --account=<value>          Account ID to filter transactions
   -c, --category=<value>         Transaction category to filter
   -d, --details                  Show detailed transaction info
-  -f, --format=<option>          Output format (json, csv, table)
-                                 <options: json|csv|table>
+  -f, --format=<option>          Output format (json, csv, table, list, ndjson)
+                                 <options: json|csv|table|list|ndjson>
   -m, --merchant=<value>         Merchant name to filter transactions
   -p, --parentCategory=<option>  Parent category to filter transactions
                                  <options: professional services|household|lifestyle|appearance|transport|food|housing|e
@@ -280,4 +315,5 @@ EXAMPLES
 ```
 
 _See code: [src/commands/transfer.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/transfer.ts)_
+
 <!-- commandsstop -->

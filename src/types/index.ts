@@ -15,7 +15,7 @@ export interface AppConfig {
 }
 
 // Output format types
-export type OutputFormat = 'json' | 'csv' | 'table';
+export type OutputFormat = 'json' | 'csv' | 'table' | 'ndjson';
 
 // Transaction-related types
 export interface FormattedTransaction {

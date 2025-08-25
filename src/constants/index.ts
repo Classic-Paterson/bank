@@ -23,7 +23,7 @@ export const SECURE_FILE_MODE = 0o600;
 export const GOOGLE_SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
 
 // Output formats
-export const OUTPUT_FORMATS = ['json', 'csv', 'table'] as const;
+export const OUTPUT_FORMATS = ['json', 'csv', 'table', 'ndjson'] as const;
 
 // Valid parent categories
 export const PARENT_CATEGORIES = [

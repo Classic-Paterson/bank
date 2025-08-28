@@ -49,12 +49,13 @@ export default class Transactions extends Command {
     }),
     since: Flags.string({
       char: 's',
-      description: 'Start date for transactions (YYYY-MM-DD)',
+      description: 'Start date for transactions (YYYY-MM-DD) [default: 7 days ago]',
+      default: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     }),
     until: Flags.string({
       char: 'u',
       default: new Date().toISOString().split('T')[0],
-      description: 'End date for transactions (YYYY-MM-DD)',
+      description: 'End date for transactions (YYYY-MM-DD) [default: today]',
     }),
     type: Flags.string({
       char: 't',
@@ -79,8 +80,7 @@ export default class Transactions extends Command {
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Transactions);
     const format = flags.format ?? configService.get('format') ?? 'json';
-    const { lastUpdate } = cacheService.getCacheData();
-    const sinceDate = flags.since ?? lastUpdate?.split('T')[0] ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const sinceDate = flags.since;
     const untilParsed = new Date(flags.until);
     const sinceParsed = new Date(sinceDate);
 

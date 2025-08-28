@@ -308,6 +308,7 @@
       },
       "description": "Access transaction data",
       "examples": [
+        "<%= config.bin %> <%= command.id %> # Gets transactions from 7 days ago to today",
         "<%= config.bin %> <%= command.id %>",
         "<%= config.bin %> <%= command.id %> --since 2023-01-01 --until 2023-01-31",
         "<%= config.bin %> <%= command.id %> --minAmount 100 --maxAmount 500",
@@ -366,17 +367,18 @@
         },
         "since": {
           "char": "s",
-          "description": "Start date for transactions (YYYY-MM-DD)",
+          "description": "Start date for transactions (YYYY-MM-DD) [default: 7 days ago]",
           "name": "since",
+          "default": "2025-08-20",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
         },
         "until": {
           "char": "u",
-          "description": "End date for transactions (YYYY-MM-DD)",
+          "description": "End date for transactions (YYYY-MM-DD) [default: today]",
           "name": "until",
-          "default": "2025-08-25",
+          "default": "2025-08-27",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"

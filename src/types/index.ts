@@ -51,6 +51,22 @@ export interface TransactionCache {
   transactions: EnrichedTransaction[];
 }
 
+export interface AccountCache {
+  lastUpdate: string | null;
+  accounts: AccountSummary[];
+}
+
+// Saved query types
+export interface SavedQuery {
+  name: string;
+  description?: string;
+  filters: TransactionFilter;
+  createdAt: string;
+  lastUsed?: string;
+}
+
+export type SavedQueryMap = Record<string, SavedQuery>;
+
 // Merchant categorization types
 export interface MerchantCategory {
   parent: string;

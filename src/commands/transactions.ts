@@ -1,12 +1,12 @@
 import { Args, Command, Flags } from '@oclif/core';
-import { EnrichedTransaction } from 'akahu';
+import { Account, EnrichedTransaction } from 'akahu';
 
 import { formatOutput } from '../utils/output.js';
 import { apiService } from '../services/api.service.js';
 import { configService } from '../services/config.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { transactionProcessingService } from '../services/transaction-processing.service.js';
-import { FormattedTransaction } from '../types/index.js';
+import { FormattedTransaction, AccountSummary } from '../types/index.js';
 
 export default class Transactions extends Command {
   static override args = {
@@ -75,6 +75,11 @@ export default class Transactions extends Command {
       description: 'Show detailed transaction info',
       default: false,
     }),
+    refresh: Flags.boolean({
+      char: 'r',
+      description: 'Force refresh from API (bypass cache)',
+      default: false,
+    }),
   };
 
   public async run(): Promise<void> {
@@ -92,16 +97,50 @@ export default class Transactions extends Command {
     const untilDate = untilParsed.toISOString().split('T')[0];
 
     try {
-      // Fetch all transactions within the date range
-      const transactionsData = await apiService.listAllTransactions(
-        sinceDate,
-        untilDate,
-      );
+      const cacheEnabled = configService.get<boolean>('cacheData') ?? false;
+      let transactionsData: EnrichedTransaction[];
+      let accounts: Account[];
+      let fromCache = false;
+
+      // Check cache first if enabled and not forcing refresh
+      if (cacheEnabled && !flags.refresh && cacheService.isTransactionCacheValid(sinceDate, untilDate)) {
+        transactionsData = cacheService.getCachedTransactions(sinceDate, untilDate);
+        fromCache = true;
+      } else {
+        // Fetch from API
+        transactionsData = await apiService.listAllTransactions(sinceDate, untilDate);
+
+        // Update cache if enabled
+        if (cacheEnabled) {
+          cacheService.setTransactionCache(transactionsData);
+        }
+      }
 
       // Filter transactions explicitly based on sinceDate
       const transactionsDataFiltered = transactionsData.filter((tx: EnrichedTransaction) => new Date(tx.date) >= new Date(sinceDate));
 
-      const accounts = await apiService.listAccounts();
+      // Get accounts (with caching)
+      if (cacheEnabled && !flags.refresh && cacheService.isAccountCacheValid()) {
+        // Use cached account summaries - convert to minimal Account-like objects for formatting
+        const cachedAccounts = cacheService.getCachedAccounts();
+        accounts = cachedAccounts.map((acc: AccountSummary) => ({
+          _id: acc.id ?? '',
+          name: acc.name,
+          formatted_account: acc.accountNumber,
+          type: acc.type,
+          connection: { name: acc.institution },
+          balance: { current: acc.balance, available: acc.availableBalance },
+        })) as unknown as Account[];
+      } else {
+        accounts = await apiService.listAccounts();
+        if (cacheEnabled) {
+          cacheService.setAccountCache(accounts);
+        }
+      }
+
+      if (fromCache && format.toLowerCase() === 'table') {
+        console.log('(using cached data)\n');
+      }
       
       // Map transactions to desired output format using the service
       const transactions = transactionProcessingService.formatTransactions(transactionsDataFiltered, accounts);
@@ -230,8 +269,6 @@ export default class Transactions extends Command {
       } else {
         this.error('No transactions found matching your criteria.');
       }
-
-      cacheService.updateCache(transactionsData);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

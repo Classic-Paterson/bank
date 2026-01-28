@@ -6,6 +6,8 @@
 export const CONFIG_DIR_NAME = '.bankcli';
 export const CONFIG_FILE_NAME = 'config.json';
 export const CACHE_FILE_NAME = 'transaction_cache.json';
+export const ACCOUNT_CACHE_FILE_NAME = 'account_cache.json';
+export const SAVED_QUERIES_FILE_NAME = 'saved_queries.json';
 export const MERCHANT_MAP_FILE_NAME = 'merchant_map.json';
 export const OAUTH_TOKENS_FILE_NAME = '.bank-oauth-tokens.json';
 
@@ -15,6 +17,10 @@ export const DEFAULT_CACHE_ENABLED = false;
 export const DEFAULT_TRANSACTION_DAYS_BACK = 1;
 export const DEFAULT_CATEGORIZATION_DAYS_BACK = 90;
 export const DEFAULT_CATEGORY_MONTHS_BACK = 6;
+
+// Cache TTL (time-to-live) in milliseconds
+export const TRANSACTION_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+export const ACCOUNT_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
 
 // File permissions
 export const SECURE_FILE_MODE = 0o600;

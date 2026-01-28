@@ -4,6 +4,7 @@ import { Account } from 'akahu';
 import { formatOutput } from '../utils/output.js';
 import { apiService } from '../services/api.service.js';
 import { configService } from '../services/config.service.js';
+import { cacheService } from '../services/cache.service.js';
 import { AccountSummary } from '../types/index.js';
 
 export default class Accounts extends Command {
@@ -35,6 +36,11 @@ export default class Accounts extends Command {
       description: 'Show detailed account info',
       default: false,
     }),
+    refresh: Flags.boolean({
+      char: 'r',
+      description: 'Force refresh from API (bypass cache)',
+      default: false,
+    }),
   };
 
   public async run(): Promise<void> {
@@ -42,9 +48,74 @@ export default class Accounts extends Command {
 
     const format = flags.format ?? configService.get('format') ?? 'json';
     const typeFilter = flags.type?.toLowerCase();
+    const cacheEnabled = configService.get<boolean>('cacheData') ?? false;
 
     try {
+      let fromCache = false;
+
+      // Check cache first if enabled and not forcing refresh
+      // Note: Cache only works for non-detailed view since we don't cache full Account objects
+      if (cacheEnabled && !flags.refresh && !flags.details && cacheService.isAccountCacheValid()) {
+        // For non-detailed view, we can use cached summaries directly
+        const cachedAccounts = cacheService.getCachedAccounts();
+        fromCache = true;
+
+        if (fromCache && format.toLowerCase() === 'table') {
+          console.log('(using cached data)\n');
+        }
+
+        let filteredAccounts = cachedAccounts;
+
+        if (args.account) {
+          filteredAccounts = filteredAccounts.filter((account: AccountSummary) =>
+            account.accountNumber === args.account ||
+            account.name.toLowerCase().includes(args.account?.toLowerCase() ?? '')
+          );
+        }
+
+        if (typeFilter) {
+          filteredAccounts = filteredAccounts.filter((account: AccountSummary) =>
+            account.type.toLowerCase().includes(typeFilter)
+          );
+        }
+
+        // Group and sort
+        const groupedAccounts = filteredAccounts.reduce((groups: Record<string, AccountSummary[]>, account: AccountSummary) => {
+          const type = account.type;
+          if (!groups[type]) {
+            groups[type] = [];
+          }
+          groups[type].push(account);
+          return groups;
+        }, {} as Record<string, AccountSummary[]>);
+
+        for (const type in groupedAccounts) {
+          groupedAccounts[type].sort((a: AccountSummary, b: AccountSummary) => b.balance - a.balance);
+        }
+
+        const sortedAccounts = Object.values(groupedAccounts).flat();
+
+        if (sortedAccounts.length > 0) {
+          formatOutput(sortedAccounts, format);
+
+          if (format.toLowerCase() === 'table') {
+            const totalAccounts = sortedAccounts.length;
+            const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
+            console.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(2)}\n`);
+          }
+        } else {
+          this.error('No accounts found matching your criteria.');
+        }
+        return;
+      }
+
+      // Fetch from API
       const rawAccounts = await apiService.listAccounts();
+
+      // Update cache if enabled
+      if (cacheEnabled) {
+        cacheService.setAccountCache(rawAccounts);
+      }
 
       // Map accounts based on the details flag
       const accounts: AccountSummary[] = flags.details

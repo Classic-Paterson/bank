@@ -45,6 +45,13 @@
           "name": "details",
           "allowNo": false,
           "type": "boolean"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
@@ -165,6 +172,193 @@
         "dist",
         "commands",
         "categorise.js"
+      ]
+    },
+    "overview": {
+      "aliases": [],
+      "args": {},
+      "description": "Display a financial dashboard with account balances, spending summary, and recent activity",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --days 30",
+        "<%= config.bin %> <%= command.id %> --refresh"
+      ],
+      "flags": {
+        "days": {
+          "char": "d",
+          "description": "Number of days to include in spending analysis",
+          "name": "days",
+          "default": 30,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "overview",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "overview.js"
+      ]
+    },
+    "query": {
+      "aliases": [],
+      "args": {
+        "action": {
+          "description": "Action to perform (run, save, list, delete, show)",
+          "name": "action",
+          "options": [
+            "run",
+            "save",
+            "list",
+            "delete",
+            "show"
+          ],
+          "required": true
+        },
+        "name": {
+          "description": "Query name",
+          "name": "name"
+        }
+      },
+      "description": "Save, list, and run named transaction queries",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> list",
+        "<%= config.bin %> <%= command.id %> save groceries --merchant \"Countdown,Pak N Save\" --parentCategory food",
+        "<%= config.bin %> <%= command.id %> save large-purchases --minAmount 100 --description \"Purchases over $100\"",
+        "<%= config.bin %> <%= command.id %> run groceries",
+        "<%= config.bin %> <%= command.id %> run groceries --since 2024-01-01",
+        "<%= config.bin %> <%= command.id %> show groceries",
+        "<%= config.bin %> <%= command.id %> delete groceries"
+      ],
+      "flags": {
+        "account": {
+          "char": "a",
+          "description": "Account ID or name to filter",
+          "name": "account",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "category": {
+          "char": "c",
+          "description": "Transaction category to filter",
+          "name": "category",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "maxAmount": {
+          "description": "Maximum transaction amount",
+          "name": "maxAmount",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "minAmount": {
+          "description": "Minimum transaction amount",
+          "name": "minAmount",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "type": {
+          "char": "t",
+          "description": "Transaction type to filter",
+          "name": "type",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "parentCategory": {
+          "char": "p",
+          "description": "Parent category to filter",
+          "name": "parentCategory",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "merchant": {
+          "char": "m",
+          "description": "Merchant name(s) to filter (comma-separated)",
+          "name": "merchant",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "description": {
+          "description": "Description for the saved query",
+          "name": "description",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "since": {
+          "char": "s",
+          "description": "Start date override (YYYY-MM-DD)",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date override (YYYY-MM-DD)",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table, ndjson)",
+          "name": "format",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table",
+            "ndjson"
+          ],
+          "type": "option"
+        },
+        "details": {
+          "char": "d",
+          "description": "Show detailed transaction info",
+          "name": "details",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "query",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query.js"
       ]
     },
     "refresh": {
@@ -308,7 +502,6 @@
       },
       "description": "Access transaction data",
       "examples": [
-        "<%= config.bin %> <%= command.id %> # Gets transactions from 7 days ago to today",
         "<%= config.bin %> <%= command.id %>",
         "<%= config.bin %> <%= command.id %> --since 2023-01-01 --until 2023-01-31",
         "<%= config.bin %> <%= command.id %> --minAmount 100 --maxAmount 500",
@@ -369,7 +562,7 @@
           "char": "s",
           "description": "Start date for transactions (YYYY-MM-DD) [default: 7 days ago]",
           "name": "since",
-          "default": "2025-08-20",
+          "default": "2025-11-26",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -378,7 +571,7 @@
           "char": "u",
           "description": "End date for transactions (YYYY-MM-DD) [default: today]",
           "name": "until",
-          "default": "2025-08-27",
+          "default": "2025-12-03",
           "hasDynamicHelp": false,
           "multiple": false,
           "type": "option"
@@ -423,6 +616,13 @@
           "char": "d",
           "description": "Show detailed transaction info",
           "name": "details",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
           "allowNo": false,
           "type": "boolean"
         }

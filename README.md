@@ -31,7 +31,7 @@ $ npm install -g bank
 $ bank COMMAND
 running command...
 $ bank (--version)
-bank/1.0.0 darwin-arm64 node-v22.14.0
+bank/1.0.0 darwin-arm64 node-v22.21.1
 $ bank --help [COMMAND]
 USAGE
   $ bank COMMAND
@@ -155,6 +155,8 @@ When an allowlist is configured, transfers to unlisted accounts will be blocked.
 * [`bank categories`](#bank-categories)
 * [`bank categorise [MERCHANT]`](#bank-categorise-merchant)
 * [`bank help [COMMAND]`](#bank-help-command)
+* [`bank overview`](#bank-overview)
+* [`bank query ACTION [NAME]`](#bank-query-action-name)
 * [`bank refresh`](#bank-refresh)
 * [`bank settings ACTION [KEY] [VALUE]`](#bank-settings-action-key-value)
 * [`bank sync`](#bank-sync)
@@ -167,7 +169,7 @@ View account information
 
 ```
 USAGE
-  $ bank accounts [ACCOUNT] [-f json|csv|table|list|ndjson] [-t <value>] [-d]
+  $ bank accounts [ACCOUNT] [-f json|csv|table|list|ndjson] [-t <value>] [-d] [-r]
 
 ARGUMENTS
   ACCOUNT  Account to filter
@@ -176,6 +178,7 @@ FLAGS
   -d, --details          Show detailed account info
   -f, --format=<option>  Output format (json, csv, table, list, ndjson)
                          <options: json|csv|table|list|ndjson>
+  -r, --refresh          Force refresh from API (bypass cache)
   -t, --type=<value>     Account type to filter (loan, checking, savings, etc.)
 
 DESCRIPTION
@@ -295,6 +298,80 @@ DESCRIPTION
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v6.2.28/src/commands/help.ts)_
 
+## `bank overview`
+
+Display a financial dashboard with account balances, spending summary, and recent activity
+
+```
+USAGE
+  $ bank overview [-d <value>] [-r]
+
+FLAGS
+  -d, --days=<value>  [default: 30] Number of days to include in spending analysis
+  -r, --refresh       Force refresh from API (bypass cache)
+
+DESCRIPTION
+  Display a financial dashboard with account balances, spending summary, and recent activity
+
+EXAMPLES
+  $ bank overview
+
+  $ bank overview --days 30
+
+  $ bank overview --refresh
+```
+
+_See code: [src/commands/overview.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/overview.ts)_
+
+## `bank query ACTION [NAME]`
+
+Save, list, and run named transaction queries
+
+```
+USAGE
+  $ bank query ACTION [NAME] [-a <value>] [-c <value>] [--maxAmount <value>] [--minAmount <value>] [-t
+    <value>] [-p <value>] [-m <value>] [--description <value>] [-s <value>] [-u <value>] [-f json|csv|table|ndjson] [-d]
+
+ARGUMENTS
+  ACTION  (run|save|list|delete|show) Action to perform (run, save, list, delete, show)
+  NAME    Query name
+
+FLAGS
+  -a, --account=<value>         Account ID or name to filter
+  -c, --category=<value>        Transaction category to filter
+  -d, --details                 Show detailed transaction info
+  -f, --format=<option>         Output format (json, csv, table, ndjson)
+                                <options: json|csv|table|ndjson>
+  -m, --merchant=<value>        Merchant name(s) to filter (comma-separated)
+  -p, --parentCategory=<value>  Parent category to filter
+  -s, --since=<value>           Start date override (YYYY-MM-DD)
+  -t, --type=<value>            Transaction type to filter
+  -u, --until=<value>           End date override (YYYY-MM-DD)
+      --description=<value>     Description for the saved query
+      --maxAmount=<value>       Maximum transaction amount
+      --minAmount=<value>       Minimum transaction amount
+
+DESCRIPTION
+  Save, list, and run named transaction queries
+
+EXAMPLES
+  $ bank query list
+
+  $ bank query save groceries --merchant "Countdown,Pak N Save" --parentCategory food
+
+  $ bank query save large-purchases --minAmount 100 --description "Purchases over $100"
+
+  $ bank query run groceries
+
+  $ bank query run groceries --since 2024-01-01
+
+  $ bank query show groceries
+
+  $ bank query delete groceries
+```
+
+_See code: [src/commands/query.ts](https://github.com/lab/bank/blob/v1.0.0/src/commands/query.ts)_
+
 ## `bank refresh`
 
 Trigger a data refresh for all linked accounts
@@ -381,7 +458,7 @@ Access transaction data
 USAGE
   $ bank transactions [TRANSACTION] [-a <value>] [-c <value>] [-f json|csv|table|list|ndjson] [--maxAmount
     <value>] [--minAmount <value>] [-s <value>] [-u <value>] [-t <value>] [-p professional
-    services|household|lifestyle|appearance|transport|food|housing|education|health|utilities] [-m <value>] [-d]
+    services|household|lifestyle|appearance|transport|food|housing|education|health|utilities] [-m <value>] [-d] [-r]
 
 ARGUMENTS
   TRANSACTION  Transaction ID or description to filter
@@ -396,9 +473,10 @@ FLAGS
   -p, --parentCategory=<option>  Parent category to filter transactions
                                  <options: professional services|household|lifestyle|appearance|transport|food|housing|e
                                  ducation|health|utilities>
-  -s, --since=<value>            [default: 2025-08-20] Start date for transactions (YYYY-MM-DD) [default: 7 days ago]
+  -r, --refresh                  Force refresh from API (bypass cache)
+  -s, --since=<value>            [default: 2025-11-26] Start date for transactions (YYYY-MM-DD) [default: 7 days ago]
   -t, --type=<value>             Transaction type to filter
-  -u, --until=<value>            [default: 2025-08-27] End date for transactions (YYYY-MM-DD) [default: today]
+  -u, --until=<value>            [default: 2025-12-03] End date for transactions (YYYY-MM-DD) [default: today]
       --maxAmount=<value>        Maximum transaction amount
       --minAmount=<value>        Minimum transaction amount
 
@@ -406,8 +484,6 @@ DESCRIPTION
   Access transaction data
 
 EXAMPLES
-  $ bank transactions # Gets transactions from 7 days ago to today
-
   $ bank transactions
 
   $ bank transactions --since 2023-01-01 --until 2023-01-31

@@ -1,0 +1,15 @@
+The help text is correct and the flags are properly configured. The change was successful:
+
+**Summary of changes:**
+1. Added `dateFilterFlags()` function to `src/utils/flags.ts` - a composable factory function that creates consistent `--since`, `--until`, and `--days` flags with proper short flags (`-s`, `-u`) and descriptions including the default days value
+2. Added `DateFilterFlags` type helper for TypeScript type inference
+3. Updated `transactions.ts` to use `...dateFilterFlags(DEFAULT_TRANSACTION_DAYS_BACK)` instead of defining flags individually
+4. Updated `categories.ts` to use `...dateFilterFlags(DEFAULT_CATEGORY_DAYS_BACK)` instead of defining flags individually
+
+**Benefits:**
+- **Reduced duplication**: ~18 lines of flag definitions replaced with 1 line per command
+- **Consistency**: All date flags now have consistent `-s` and `-u` short flags across commands
+- **Maintainability**: Changes to date flag behavior/descriptions only need to happen in one place
+- **Developer experience**: Adding date filtering to new commands is now trivial
+
+SUCCESS

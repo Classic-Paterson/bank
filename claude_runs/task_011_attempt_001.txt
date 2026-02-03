@@ -1,0 +1,33 @@
+All checks pass. Here's a summary of the improvements made:
+
+## Changes Made
+
+### 1. Added Format Validation (`src/utils/output.ts`)
+- Added `isValidOutputFormat()` type guard function
+- Added `validateOutputFormat()` function that throws a clear error message for invalid formats
+- Export `OutputFormat` type for use across the codebase
+
+### 2. Added Currency Formatting Constant (`src/constants/index.ts`)
+- Added `NZD_DECIMAL_PLACES = 2` constant
+- This is now used consistently across all `.toFixed()` calls for currency values
+
+### 3. Added Format Resolution Helpers (`src/utils/flags.ts`)
+- Added `resolveFormat(flagFormat, defaultFormat)` - resolves format from flags/config with validation
+- Added `isCacheEnabled()` - centralized cache setting check
+- Format is now validated and normalized (lowercase) early in command execution
+
+### 4. Updated Commands to Use New Helpers
+Updated the following commands to use the new utilities:
+- `transactions.ts` - uses `resolveFormat()`, `isCacheEnabled()`, `NZD_DECIMAL_PLACES`, removed redundant `.toLowerCase()` calls
+- `accounts.ts` - uses `resolveFormat()`, `isCacheEnabled()`, `NZD_DECIMAL_PLACES`, removed redundant `.toLowerCase()` calls  
+- `categories.ts` - uses `resolveFormat()`, `isCacheEnabled()`, `NZD_DECIMAL_PLACES`
+- `overview.ts` - uses `isCacheEnabled()`
+- `query.ts` - uses `resolveFormat()`, `isCacheEnabled()`, `NZD_DECIMAL_PLACES`, removed redundant `.toLowerCase()` call
+
+### Impact
+- **Safety**: Invalid output formats now throw clear error messages instead of silently falling back to 'list'
+- **Code Quality**: Reduced duplication across 5 commands (format resolution, cache checking, currency formatting)
+- **Performance**: Format is normalized once per command instead of 4+ times per invocation
+- **Maintainability**: Single source of truth for currency decimal places and format validation
+
+SUCCESS

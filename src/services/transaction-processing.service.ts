@@ -1,22 +1,46 @@
 import { Account, EnrichedTransaction } from 'akahu';
 import { FormattedTransaction, TransactionFilter } from '../types/index.js';
-import { EXCLUDED_TRANSACTION_TYPES } from '../constants/index.js';
+import { isExcludedTransactionType } from '../constants/index.js';
+import { merchantMappingService } from './merchant-mapping.service.js';
 
 /**
  * Service for processing and filtering transactions
  */
 class TransactionProcessingService {
   /**
-   * Format transactions for display
+   * Format transactions for display.
+   * Uses Map-based account lookup for O(1) performance instead of O(n) find().
+   * Applies user-defined merchant mappings to override categories for known merchants.
+   *
+   * @param transactions - Raw transactions from API
+   * @param accounts - Account list for name/number resolution
+   * @param applyMerchantMappings - Whether to apply user-defined merchant→category mappings (default: true)
    */
   formatTransactions(
     transactions: EnrichedTransaction[],
-    accounts: Account[]
+    accounts: Account[],
+    applyMerchantMappings = true
   ): FormattedTransaction[] {
+    // Build account lookup map for O(1) access
+    const accountMap = new Map(accounts.map(acc => [acc._id, acc]));
+
+    // Load merchant mappings once if needed (cached in service)
+    const merchantMap = applyMerchantMappings ? merchantMappingService.loadMerchantMap() : {};
+
     return transactions.map(transaction => {
-      const account = accounts.find(acc => acc._id === transaction._account);
-      const parentCategory = transaction.category?.groups?.['personal_finance']?.name ?? 'Uncategorized';
-      const category = transaction.category?.name ?? 'Uncategorized';
+      const account = accountMap.get(transaction._account);
+      const merchantName = transaction.merchant?.name ?? '';
+
+      // Check for user-defined merchant mapping first
+      const merchantMapping = merchantName ? merchantMap[merchantName] : undefined;
+
+      // Use merchant mapping if available, otherwise fall back to API categories
+      const parentCategory = merchantMapping?.parent
+        ?? transaction.category?.groups?.['personal_finance']?.name
+        ?? 'Uncategorized';
+      const category = merchantMapping?.category
+        ?? transaction.category?.name
+        ?? 'Uncategorized';
 
       return {
         id: transaction._id,
@@ -26,7 +50,7 @@ class TransactionProcessingService {
         amount: transaction.amount,
         particulars: transaction.meta?.particulars ?? '',
         description: transaction.description,
-        merchant: transaction.merchant?.name ?? '',
+        merchant: merchantName,
         parentCategory,
         category,
         type: transaction.type,
@@ -68,11 +92,18 @@ class TransactionProcessingService {
       );
     }
 
-    // Apply merchant filter
+    // Apply merchant filter (supports comma-separated list)
     if (filters.merchant) {
-      filtered = filtered.filter(tx =>
-        tx.merchant.toLowerCase().includes(filters.merchant!.toLowerCase())
-      );
+      const merchants = filters.merchant
+        .split(',')
+        .map(m => m.trim().toLowerCase())
+        .filter(m => m.length > 0); // Exclude empty strings that would match everything
+
+      if (merchants.length > 0) {
+        filtered = filtered.filter(tx =>
+          merchants.some(m => tx.merchant.toLowerCase().includes(m))
+        );
+      }
     }
 
     // Apply amount filters
@@ -91,6 +122,24 @@ class TransactionProcessingService {
       );
     }
 
+    // Apply search filter (matches transaction ID or description)
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter(tx =>
+        tx.id === filters.search ||
+        (tx.description ?? '').toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply direction filter (in = income/positive, out = spending/negative)
+    if (filters.direction) {
+      if (filters.direction === 'in') {
+        filtered = filtered.filter(tx => tx.amount > 0);
+      } else if (filters.direction === 'out') {
+        filtered = filtered.filter(tx => tx.amount < 0);
+      }
+    }
+
     return filtered;
   }
 
@@ -100,7 +149,7 @@ class TransactionProcessingService {
   calculateCategoryBreakdown(transactions: FormattedTransaction[]): Record<string, number> {
     return transactions.reduce((acc, tx) => {
       // Skip transfers and income (positive amounts)
-      if (EXCLUDED_TRANSACTION_TYPES.includes(tx.type as any) || tx.amount >= 0) {
+      if (isExcludedTransactionType(tx.type) || tx.amount >= 0) {
         return acc;
       }
 
@@ -118,7 +167,7 @@ class TransactionProcessingService {
     const totalTransactions = transactions.length;
     const totalAmount = transactions.reduce((sum, tx) => sum + tx.amount, 0);
     const totalSpending = transactions
-      .filter(tx => tx.amount < 0 && !EXCLUDED_TRANSACTION_TYPES.includes(tx.type as any))
+      .filter(tx => tx.amount < 0 && !isExcludedTransactionType(tx.type))
       .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
 
     return {
@@ -133,21 +182,37 @@ class TransactionProcessingService {
    */
   getUncategorizedTransactions(transactions: EnrichedTransaction[]): EnrichedTransaction[] {
     return transactions.filter(tx =>
-      !EXCLUDED_TRANSACTION_TYPES.includes(tx.type as any) &&
+      !isExcludedTransactionType(tx.type) &&
       (!tx.category?.name || !tx.category?.groups?.['personal_finance']?.name)
     );
   }
 
   /**
-   * Generate display data based on format requirements
+   * Generate display data based on format requirements.
+   * Handles date formatting (Date to string) and field selection for lean table views.
+   * @param transactions - Array of formatted transactions
+   * @param format - Output format (table, json, csv, etc.)
+   * @param showDetails - Whether to include all fields
+   * @param useRelativeTime - Whether to show relative time (e.g., "2d ago") instead of dates
+   * @returns Array of display-ready objects with dates as strings
    */
   generateDisplayData(
     transactions: FormattedTransaction[],
     format: string,
-    showDetails: boolean
-  ) {
+    showDetails: boolean,
+    useRelativeTime = false
+  ): Array<Record<string, string | number>> {
+    // First, convert dates to strings for display
+    const formattedTransactions = transactions.map(tx => ({
+      ...tx,
+      date: useRelativeTime
+        ? this.formatRelativeTime(tx.date)
+        : tx.date.toLocaleDateString(),
+    }));
+
+    // For table format without details, show a lean view with key fields only
     if (format.toLowerCase() === 'table' && !showDetails) {
-      return transactions.map(tx => ({
+      return formattedTransactions.map(tx => ({
         date: tx.date,
         account: tx.accountName,
         amount: tx.amount,
@@ -156,7 +221,29 @@ class TransactionProcessingService {
       }));
     }
 
-    return transactions;
+    return formattedTransactions;
+  }
+
+  /**
+   * Format a date as relative time (e.g., "2d ago", "yesterday").
+   * Compact format for table display.
+   */
+  private formatRelativeTime(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const isFuture = diffMs < 0;
+    const absDiffMs = Math.abs(diffMs);
+    const diffDays = Math.floor(absDiffMs / 86400000);
+
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return isFuture ? 'tomorrow' : 'yesterday';
+    if (diffDays < 7) return isFuture ? `in ${diffDays}d` : `${diffDays}d ago`;
+    if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return isFuture ? `in ${weeks}w` : `${weeks}w ago`;
+    }
+    // Fall back to short date for older transactions
+    return date.toLocaleDateString();
   }
 }
 

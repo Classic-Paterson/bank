@@ -1,0 +1,30 @@
+The changes look good. Here's a summary of what was improved:
+
+## Summary of Changes
+
+**Improvement**: Added `--since` and `--until` date flags to the `overview` command for CLI consistency.
+
+### Problem
+The `overview` command only supported `--days` for date filtering, while other commands (`transactions`, `categories`, `query`) supported the full `--since/--until/--days` pattern via the shared `dateFilterFlags()` utility. This inconsistency made the CLI harder to use.
+
+### Solution
+1. **`src/commands/overview.ts`**:
+   - Replaced standalone `--days` flag with `dateFilterFlags(DEFAULT_OVERVIEW_DAYS_BACK)` spread
+   - Updated to use `parseDateRange()` for consistent date validation
+   - Improved period label to show actual date range (e.g., `(2024-01-01 to 2024-01-31, 31 days)`) instead of just `(last N days)`
+   - Added example showing `--since/--until` usage
+   - Removed unused `Flags` import from `@oclif/core`
+   - Removed unused `formatDateISO` and `daysAgo` imports (now handled by `parseDateRange`)
+
+2. **`test/commands/overview.test.ts`**:
+   - Added test for `--since/--until` flags
+   - Added test for invalid date format rejection
+   - Added test for invalid date range rejection
+
+### Results
+- Build passes
+- Lint passes
+- 183 tests pass (3 new tests added)
+- CLI flag interface is now consistent across date-filtering commands
+
+SUCCESS

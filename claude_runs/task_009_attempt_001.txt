@@ -1,0 +1,42 @@
+All 268 tests pass, build succeeds, and linting passes.
+
+## Summary of Changes
+
+I added **month-based date shortcuts** to the banking CLI to make it easier for users to query financial data by common time periods. This is a high-impact UX improvement for a banking CLI where monthly analysis is very common.
+
+### New Date Shortcuts Added:
+
+| Shortcut | Description | Example Usage |
+|----------|-------------|---------------|
+| `Nm` / `Nmonths` | N months ago | `--since 3m` |
+| `thismonth` | First day of current month | `--since thismonth` |
+| `lastmonth` | First day of previous month | `--since lastmonth` |
+| `endoflastmonth` | Last day of previous month | `--until endoflastmonth` |
+
+### Files Changed:
+- `src/utils/date.ts` - Added `monthsAgo()` function and month shortcuts to date parser
+- `src/utils/flags.ts` - Updated help text to mention new shortcuts
+- `test/utils/date.test.ts` - Added 11 new tests for month shortcuts
+
+### Example Usage:
+```bash
+# View last month's transactions
+bank transactions --since lastmonth --until endoflastmonth
+
+# View this month's spending  
+bank transactions --since thismonth --direction out
+
+# View last 3 months of category spending
+bank categories --since 3m
+
+# Compare monthly trends
+bank overview --since lastmonth
+```
+
+This change:
+- Is backwards compatible (existing shortcuts still work)
+- Follows existing code patterns
+- Has comprehensive test coverage
+- Updates help text to be discoverable
+
+SUCCESS

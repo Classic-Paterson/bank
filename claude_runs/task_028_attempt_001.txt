@@ -1,0 +1,12 @@
+**Change Made:**
+
+Fixed `formatRelativeTime` in `src/utils/output.ts` to handle future dates gracefully. Previously, if a date was in the future (which can happen with pending transactions or scheduled transfers), the function would produce confusing output like "-5m ago" due to negative time differences. 
+
+**The fix:**
+- Detects whether the date is in the future
+- For future dates, returns user-friendly strings like "in 5m", "in 2d", "tomorrow", "in 3 weeks"
+- For past dates, the existing behavior is preserved ("5m ago", "yesterday", etc.)
+
+This is a correctness improvement that ensures the CLI produces trustworthy, clear output regardless of transaction timing.
+
+SUCCESS

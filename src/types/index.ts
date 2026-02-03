@@ -6,17 +6,17 @@ import { EnrichedTransaction } from 'akahu';
 
 // Configuration types
 export interface AppConfig {
-  api_key?: string;
-  app_token?: string;
+  appToken?: string;
   userToken?: string;
   format?: OutputFormat;
   cacheData?: boolean;
   transferAllowlist?: string[];
+  transferMaxAmount?: number;
   [key: string]: any;
 }
 
 // Output format types
-export type OutputFormat = 'json' | 'csv' | 'table' | 'ndjson';
+export type OutputFormat = 'json' | 'csv' | 'table' | 'list' | 'ndjson';
 
 // Transaction-related types
 export interface FormattedTransaction {
@@ -43,12 +43,23 @@ export interface TransactionFilter {
   type?: string;
   parentCategory?: string;
   merchant?: string;
+  /** Search by transaction ID or description */
+  search?: string;
+  /** Filter by direction: 'in' for income (positive), 'out' for spending (negative) */
+  direction?: 'in' | 'out';
 }
 
 // Cache types
+export interface CachedDateRange {
+  start: string;  // YYYY-MM-DD
+  end: string;    // YYYY-MM-DD
+}
+
 export interface TransactionCache {
   lastUpdate: string | null;
   transactions: EnrichedTransaction[];
+  /** Date ranges that have been fully fetched and cached */
+  cachedRanges?: CachedDateRange[];
 }
 
 export interface AccountCache {
@@ -88,6 +99,8 @@ export interface SettingDefinition {
   type: 'string' | 'boolean' | 'number' | 'array';
   options?: string[];
   default?: any;
+  /** If true, value should be masked when displayed */
+  sensitive?: boolean;
 }
 
 // OAuth types
@@ -124,4 +137,17 @@ export interface TransactionQueryParams {
 export interface ApiError extends Error {
   code?: string;
   statusCode?: number;
+}
+
+// NZFCC Category types (from external categories JSON)
+export interface NZFCCCategoryGroup {
+  name: string;
+}
+
+export interface NZFCCCategory {
+  name: string;
+  groups: {
+    personal_finance: NZFCCCategoryGroup;
+    [key: string]: NZFCCCategoryGroup;
+  };
 }

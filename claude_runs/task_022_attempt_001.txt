@@ -1,0 +1,18 @@
+All checks pass:
+- ✅ 220 tests passing (added 36 new tests for transaction-processing.service)
+- ✅ Lint passes
+- ✅ Build succeeds
+
+**Summary of changes:**
+Added comprehensive unit tests for `TransactionProcessingService` in `test/services/transaction-processing.service.test.ts` covering:
+
+1. **formatTransactions** - 6 tests for transaction formatting, handling missing fields, and O(1) account lookup
+2. **applyFilters** - 14 tests for all filter types (account, category, parent category, merchant, amount, type, search) including edge cases like comma-separated merchants and combined filters
+3. **calculateCategoryBreakdown** - 6 tests for spending analysis by category, excluding transfers/income
+4. **calculateSummary** - 3 tests for transaction summary statistics
+5. **getUncategorizedTransactions** - 3 tests for identifying uncategorized transactions
+6. **generateDisplayData** - 4 tests for display format generation
+
+This is a high-impact improvement as these tests lock in the critical business logic for filtering, formatting, and categorizing financial transactions - ensuring correctness and preventing regressions.
+
+SUCCESS

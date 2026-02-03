@@ -6,6 +6,22 @@ import inquirer from 'inquirer';
 
 import { apiService } from '../services/api.service.js';
 import { configService } from '../services/config.service.js';
+import { cacheService } from '../services/cache.service.js';
+import { DEFAULT_TRANSFER_MAX_AMOUNT, NZ_ACCOUNT_PATTERN } from '../constants/index.js';
+import { getErrorMessage } from '../utils/error.js';
+import { warnIfConfigCorrupted } from '../utils/flags.js';
+
+/**
+ * Validates NZ bank account number format.
+ * Format: BB-bbbb-AAAAAAA-SSS where:
+ * - BB: Bank code (2 digits)
+ * - bbbb: Branch code (4 digits)
+ * - AAAAAAA: Account number (7 digits, may have leading zeros)
+ * - SSS: Suffix (2-3 digits)
+ */
+function isValidNZAccountNumber(accountNumber: string): boolean {
+  return NZ_ACCOUNT_PATTERN.test(accountNumber);
+}
 
 interface TransferSummary {
   fromAccount: {
@@ -66,6 +82,8 @@ export default class Transfer extends Command {
   async run() {
     const { flags } = await this.parse(Transfer);
 
+    warnIfConfigCorrupted(this);
+
     // Safety check: Either --confirm or --dry-run must be provided
     if (!flags.confirm && !flags['dry-run']) {
       this.error(
@@ -74,7 +92,6 @@ export default class Transfer extends Command {
         chalk.yellow('Use --confirm to execute the transfer after reviewing the summary.\n') +
         chalk.gray('Example: bank transfer --from "My Account" --to 12-3456-7890123-00 --amount 100.00 --confirm')
       );
-      return;
     }
 
     let fromAccountId = flags.from;
@@ -82,11 +99,41 @@ export default class Transfer extends Command {
     const description = flags.description;
     const reference = flags.reference;
 
+    // Validate destination account number format (NZ bank account: XX-XXXX-XXXXXXX-XX)
+    if (!isValidNZAccountNumber(flags.to)) {
+      this.error(
+        chalk.red('⚠️  Invalid destination account number format.\n') +
+        chalk.yellow('NZ bank accounts must be in the format: BB-bbbb-AAAAAAA-SS\n') +
+        chalk.gray('  BB:      Bank code (2 digits)\n') +
+        chalk.gray('  bbbb:    Branch code (4 digits)\n') +
+        chalk.gray('  AAAAAAA: Account number (7 digits)\n') +
+        chalk.gray('  SS:      Suffix (2-3 digits)\n') +
+        chalk.gray('Example: 12-3456-0123456-00')
+      );
+    }
+
+    // Validate amount format: must be a valid decimal number (no scientific notation)
+    // Pattern: optional leading digits, optional decimal with 0-2 digits
+    const validAmountPattern = /^\d+(\.\d{1,2})?$/;
+    if (!validAmountPattern.test(amountStr)) {
+      this.error(
+        'Invalid amount format. Use a number with up to 2 decimal places (e.g., "100" or "99.50").'
+      );
+    }
+
     // Parse and validate the amount
     const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       this.error('Invalid amount. Please enter a positive number.');
-      return;
+    }
+
+    // Warn on unusually large transfers (configurable via transferMaxAmount)
+    const maxAmount = configService.get<number>('transferMaxAmount') ?? DEFAULT_TRANSFER_MAX_AMOUNT;
+    if (amount > maxAmount) {
+      this.error(
+        chalk.red(`⚠️  Amount $${amount.toFixed(2)} exceeds the configured maximum of $${maxAmount.toFixed(2)}.\n`) +
+        chalk.gray(`To increase this limit: bank settings set transferMaxAmount ${amount}`)
+      );
     }
 
     try {
@@ -102,7 +149,6 @@ export default class Transfer extends Command {
           chalk.yellow(`Allowed destinations: ${allowedDestinations.join(', ')}\n`) +
           chalk.gray('Update allowlist with: bank settings set transferAllowlist "12-3456-7890123-00,98-7654-3210987-00"')
         );
-        return;
       }
 
       // Create transfer summary
@@ -145,17 +191,24 @@ export default class Transfer extends Command {
         reference,
       });
 
-    } catch (error: any) {
+    } catch (error) {
       // Redact sensitive information from error logs
-      const sanitizedError = this.sanitizeErrorMessage(error.message);
+      const sanitizedError = this.sanitizeErrorMessage(getErrorMessage(error));
       this.error(`Error processing transfer: ${sanitizedError}`);
     }
   }
 
   private async resolveAccount(accountIdentifier: string): Promise<{ resolvedAccountId: string; account: Account }> {
+    // Use cache service to avoid unnecessary API calls
+    const cacheEnabled = configService.get<boolean>('cacheData') ?? false;
+    const { accounts } = await cacheService.getAccountsWithCache(
+      false, // don't force refresh
+      cacheEnabled,
+      () => apiService.listAccounts()
+    );
+
     if (accountIdentifier.startsWith('acc_')) {
       // It's already an account ID, find the account details
-      const accounts = await apiService.listAccounts();
       const account = accounts.find((acc: Account) => acc._id === accountIdentifier);
       if (!account) {
         throw new Error(`Account with ID '${accountIdentifier}' not found.`);
@@ -163,9 +216,8 @@ export default class Transfer extends Command {
       return { resolvedAccountId: accountIdentifier, account };
     } else {
       // It's an account name, find the matching account
-      const accounts = await apiService.listAccounts();
-      const matchedAccount = accounts.find((account: Account) =>
-        account.name.toLowerCase() === accountIdentifier.toLowerCase()
+      const matchedAccount = accounts.find((acc: Account) =>
+        acc.name.toLowerCase() === accountIdentifier.toLowerCase()
       );
 
       if (!matchedAccount) {
@@ -212,17 +264,45 @@ export default class Transfer extends Command {
   }): Promise<void> {
     const transferId = await apiService.initiateTransfer(params);
 
-    // Monitor transfer status
+    // Monitor transfer status with timeout and error handling
     let transferResponse = await apiService.getTransferStatus(transferId);
     const spinner = ora('Transfer is pending...').start();
 
-    while (transferResponse.status !== "SENT") {
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 2 seconds
+    const MAX_POLL_ATTEMPTS = 30; // 30 attempts * 2 seconds = 60 seconds max
+    const POLL_INTERVAL_MS = 2000;
+    const TERMINAL_STATUSES = ['SENT', 'DECLINED', 'ERROR', 'PAUSED'];
+    let attempts = 0;
+
+    while (!TERMINAL_STATUSES.includes(transferResponse.status)) {
+      attempts++;
+      if (attempts >= MAX_POLL_ATTEMPTS) {
+        spinner.stop();
+        const timeoutSeconds = (MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000;
+        this.log(chalk.yellow(`\n⏳ Transfer is still processing after ${timeoutSeconds} seconds.`));
+        this.log(chalk.blue('This does NOT mean the transfer failed.'));
+        this.log(chalk.gray(`Current status: ${transferResponse.status}`));
+        this.log(chalk.gray(`Transfer ID: ${this.maskSensitiveData(transferId)}`));
+        this.log(chalk.gray('\nThe transfer is likely still in progress. Bank transfers can take'));
+        this.log(chalk.gray('several minutes to complete. Check your bank app or wait for'));
+        this.log(chalk.gray('confirmation from your bank.'));
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
       transferResponse = await apiService.getTransferStatus(transferId);
     }
-    
+
     spinner.stop();
-    this.log(chalk.green('✅ Transfer completed successfully.'));
+
+    if (transferResponse.status === 'SENT') {
+      this.log(chalk.green('✅ Transfer completed successfully.'));
+    } else if (transferResponse.status === 'DECLINED') {
+      this.log(chalk.red(`❌ Transfer was declined by the bank.`));
+    } else if (transferResponse.status === 'ERROR') {
+      this.log(chalk.red(`❌ Transfer encountered an error.`));
+    } else if (transferResponse.status === 'PAUSED') {
+      this.log(chalk.yellow(`⚠️  Transfer is paused and requires attention.`));
+    }
+
     this.log(chalk.gray(`Transfer ID: ${this.maskSensitiveData(transferId)}`));
   }
 
@@ -237,7 +317,7 @@ export default class Transfer extends Command {
     // Handle NZ bank account format (XX-XXXX-XXXXXXX-XX)
     const parts = accountNumber.split('-');
     if (parts.length === 4) {
-      return `${parts[0]}-****-****${parts[2].substring(parts[2].length - 3)}-${parts[3]}`;
+      return `${parts[0]}-****-***${parts[2].substring(parts[2].length - 4)}-${parts[3]}`;
     }
     // Fallback for other formats
     return this.maskSensitiveData(accountNumber);

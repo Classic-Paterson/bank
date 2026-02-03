@@ -1,0 +1,21 @@
+## Summary of Changes
+
+**1. Removed dead code from `src/services/api.service.ts`:**
+- Deleted the unused `listTransactions()` method (lines 102-161) that was never called anywhere in the codebase. All commands use `listAllTransactions()` instead.
+
+**2. Added helper method to `src/services/cache.service.ts`:**
+- Added `getCachedAccountsAsApiType()` method that encapsulates the repeated pattern of converting `AccountSummary[]` to `Account[]`-compatible format.
+
+**3. Refactored three commands to use the new helper:**
+- `src/commands/transactions.ts`: Removed 8 lines of duplicate conversion code
+- `src/commands/overview.ts`: Removed 8 lines of duplicate conversion code  
+- `src/commands/query.ts`: Removed 8 lines of duplicate conversion code
+- Cleaned up unused `AccountSummary` imports from all three files
+
+**Impact:**
+- Reduced code duplication (~24 lines removed across 3 files)
+- Eliminated 58 lines of dead code from `ApiService`
+- Single source of truth for AccountSummary → Account conversion
+- All 47 tests pass, build and lint succeed
+
+SUCCESS

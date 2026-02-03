@@ -1,0 +1,26 @@
+The implementation is complete. Here's a summary of the changes:
+
+## Summary of Changes
+
+**Added automatic retry with exponential backoff to ApiService** (`src/services/api.service.ts`)
+
+This improves CLI reliability by automatically retrying API calls that fail due to transient errors:
+
+**What gets retried:**
+- Rate limiting (HTTP 429)
+- Server errors (HTTP 5xx)
+- Network errors: `ENOTFOUND`, `ECONNREFUSED`, `ECONNRESET`, `ETIMEDOUT`, `ESOCKETTIMEDOUT`, `EPIPE`
+
+**Retry behavior:**
+- Up to 3 retries by default
+- Exponential backoff: 1s → 2s → 4s (base delays)
+- ±25% jitter to prevent thundering herd
+- Maximum delay capped at 10 seconds
+
+**Safety consideration:**
+- `initiateTransfer()` intentionally does NOT auto-retry to prevent duplicate transactions
+
+**Tests added** (`test/services/api.service.test.ts`):
+- 12 new tests covering `isRetryableError()`, `calculateBackoffDelay()`, and configuration defaults
+
+SUCCESS

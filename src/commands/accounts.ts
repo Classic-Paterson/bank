@@ -2,10 +2,12 @@ import { Args, Command, Flags } from '@oclif/core';
 import { Account } from 'akahu';
 
 import { formatOutput } from '../utils/output.js';
+import { getErrorMessage } from '../utils/error.js';
+import { refreshFlag, quietFlag, formatFlag, warnIfConfigCorrupted, resolveFormat, isCacheEnabled } from '../utils/flags.js';
 import { apiService } from '../services/api.service.js';
-import { configService } from '../services/config.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { AccountSummary } from '../types/index.js';
+import { NZD_DECIMAL_PLACES } from '../constants/index.js';
 
 export default class Accounts extends Command {
   static description = 'View account information';
@@ -19,14 +21,12 @@ export default class Accounts extends Command {
     '<%= config.bin %> <%= command.id %> --format csv',
     '<%= config.bin %> <%= command.id %> --type savings',
     '<%= config.bin %> <%= command.id %> --details',
+    '<%= config.bin %> <%= command.id %> --total  # Get total balance across all accounts',
+    '<%= config.bin %> <%= command.id %> --type savings --total  # Get total savings balance',
   ];
 
   static override flags = {
-    format: Flags.string({
-      char: 'f',
-      description: 'Output format (json, csv, table, list, ndjson)',
-      options: ['json', 'csv', 'table', 'list', 'ndjson'],
-    }),
+    format: formatFlag,
     type: Flags.string({
       char: 't',
       description: 'Account type to filter (loan, checking, savings, etc.)',
@@ -36,9 +36,10 @@ export default class Accounts extends Command {
       description: 'Show detailed account info',
       default: false,
     }),
-    refresh: Flags.boolean({
-      char: 'r',
-      description: 'Force refresh from API (bypass cache)',
+    refresh: refreshFlag,
+    quiet: quietFlag,
+    total: Flags.boolean({
+      description: 'Output only the total balance of matching accounts (useful for scripting)',
       default: false,
     }),
   };
@@ -46,78 +47,36 @@ export default class Accounts extends Command {
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Accounts);
 
-    const format = flags.format ?? configService.get('format') ?? 'json';
+    warnIfConfigCorrupted(this, flags.quiet);
+
+    // Resolve and validate format early (normalized to lowercase)
+    const format = resolveFormat(flags.format);
     const typeFilter = flags.type?.toLowerCase();
-    const cacheEnabled = configService.get<boolean>('cacheData') ?? false;
+    const cacheEnabled = isCacheEnabled();
 
     try {
-      let fromCache = false;
+      // Detailed view requires fresh API data (cache doesn't store full Account objects)
+      const canUseCache = !flags.details;
 
-      // Check cache first if enabled and not forcing refresh
-      // Note: Cache only works for non-detailed view since we don't cache full Account objects
-      if (cacheEnabled && !flags.refresh && !flags.details && cacheService.isAccountCacheValid()) {
-        // For non-detailed view, we can use cached summaries directly
-        const cachedAccounts = cacheService.getCachedAccounts();
-        fromCache = true;
+      // Fetch accounts (from cache or API)
+      const { accounts: rawAccounts, fromCache } = canUseCache
+        ? await cacheService.getAccountsWithCache(
+            flags.refresh,
+            cacheEnabled,
+            () => apiService.listAccounts()
+          )
+        : { accounts: await apiService.listAccounts(), fromCache: false };
 
-        if (fromCache && format.toLowerCase() === 'table') {
-          console.log('(using cached data)\n');
-        }
-
-        let filteredAccounts = cachedAccounts;
-
-        if (args.account) {
-          filteredAccounts = filteredAccounts.filter((account: AccountSummary) =>
-            account.accountNumber === args.account ||
-            account.name.toLowerCase().includes(args.account?.toLowerCase() ?? '')
-          );
-        }
-
-        if (typeFilter) {
-          filteredAccounts = filteredAccounts.filter((account: AccountSummary) =>
-            account.type.toLowerCase().includes(typeFilter)
-          );
-        }
-
-        // Group and sort
-        const groupedAccounts = filteredAccounts.reduce((groups: Record<string, AccountSummary[]>, account: AccountSummary) => {
-          const type = account.type;
-          if (!groups[type]) {
-            groups[type] = [];
-          }
-          groups[type].push(account);
-          return groups;
-        }, {} as Record<string, AccountSummary[]>);
-
-        for (const type in groupedAccounts) {
-          groupedAccounts[type].sort((a: AccountSummary, b: AccountSummary) => b.balance - a.balance);
-        }
-
-        const sortedAccounts = Object.values(groupedAccounts).flat();
-
-        if (sortedAccounts.length > 0) {
-          formatOutput(sortedAccounts, format);
-
-          if (format.toLowerCase() === 'table') {
-            const totalAccounts = sortedAccounts.length;
-            const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
-            console.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(2)}\n`);
-          }
-        } else {
-          this.error('No accounts found matching your criteria.');
-        }
-        return;
-      }
-
-      // Fetch from API
-      const rawAccounts = await apiService.listAccounts();
-
-      // Update cache if enabled
-      if (cacheEnabled) {
+      // Update cache if we fetched fresh data
+      if (!fromCache && cacheEnabled) {
         cacheService.setAccountCache(rawAccounts);
       }
 
-      // Map accounts based on the details flag
+      if (fromCache && format === 'table' && !flags.quiet) {
+        this.log('(using cached data)\n');
+      }
+
+      // Map accounts to display format
       const accounts: AccountSummary[] = flags.details
         ? rawAccounts.map((account: Account) => ({
             id: account._id,
@@ -142,6 +101,7 @@ export default class Accounts extends Command {
             balance: account.balance?.current ?? 0,
           }));
 
+      // Apply filters
       let filteredAccounts = accounts;
 
       if (args.account) {
@@ -157,8 +117,7 @@ export default class Accounts extends Command {
         );
       }
 
-      // Group by account type only when not showing detailed info
-      // (Grouping helps provide a more organized summary for the basic view.)
+      // Group and sort by type (only for non-detailed view)
       let sortedAccounts = filteredAccounts;
       if (!flags.details) {
         const groupedAccounts = filteredAccounts.reduce((groups: Record<string, AccountSummary[]>, account: AccountSummary) => {
@@ -170,29 +129,51 @@ export default class Accounts extends Command {
           return groups;
         }, {} as Record<string, AccountSummary[]>);
 
-        // Sort each group by balance in descending order
         for (const type in groupedAccounts) {
           groupedAccounts[type].sort((a: AccountSummary, b: AccountSummary) => b.balance - a.balance);
         }
 
-        // Flatten the grouped and sorted accounts for output
         sortedAccounts = Object.values(groupedAccounts).flat();
       }
 
-      if (sortedAccounts.length > 0) {
-        formatOutput(sortedAccounts, format);
+      if (sortedAccounts.length === 0) {
+        if (flags.total) {
+          this.log('0.00');
+        } else if (!flags.quiet) {
+          // Build a helpful message showing what was searched
+          const appliedFilters: string[] = [];
+          if (args.account) appliedFilters.push(`account="${args.account}"`);
+          if (typeFilter) appliedFilters.push(`type="${typeFilter}"`);
 
-        if (format.toLowerCase() === 'table') {
-          const totalAccounts = sortedAccounts.length;
-          const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
-          console.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(2)}\n`);
+          this.log('No accounts found.');
+          if (appliedFilters.length > 0) {
+            this.log(`Filters: ${appliedFilters.join(', ')}`);
+            this.log('');
+            this.log('Tips:');
+            this.log('  - Remove filters to see all accounts: bank accounts');
+            this.log('  - Account types are case-insensitive (e.g., savings, checking, loan)');
+          }
         }
-      } else {
-        this.error('No accounts found matching your criteria.');
+        return;
       }
 
-    } catch (error: any) {
-      this.error(`Error fetching accounts: ${error.message}`);
+      // If --total flag is set, output only the sum of balances and exit
+      if (flags.total) {
+        const total = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
+        this.log(total.toFixed(NZD_DECIMAL_PLACES));
+        return;
+      }
+
+      formatOutput(sortedAccounts, format);
+
+      if (format === 'table' && !flags.quiet) {
+        const totalAccounts = sortedAccounts.length;
+        const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
+        this.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(NZD_DECIMAL_PLACES)}\n`);
+      }
+
+    } catch (error) {
+      this.error(`Error fetching accounts: ${getErrorMessage(error)}`);
     }
   }
 }

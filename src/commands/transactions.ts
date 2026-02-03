@@ -1,12 +1,15 @@
 import { Args, Command, Flags } from '@oclif/core';
-import { Account, EnrichedTransaction } from 'akahu';
+import { EnrichedTransaction } from 'akahu';
 
 import { formatOutput } from '../utils/output.js';
+import { parseDateRange, validateAmountRange } from '../utils/date.js';
+import { getErrorMessage } from '../utils/error.js';
+import { refreshFlag, quietFlag, formatFlag, amountFlag, dateFilterFlags, warnIfConfigCorrupted, resolveFormat, isCacheEnabled } from '../utils/flags.js';
 import { apiService } from '../services/api.service.js';
-import { configService } from '../services/config.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { transactionProcessingService } from '../services/transaction-processing.service.js';
-import { FormattedTransaction, AccountSummary } from '../types/index.js';
+import { FormattedTransaction, TransactionFilter } from '../types/index.js';
+import { DEFAULT_TRANSACTION_DAYS_BACK, PARENT_CATEGORIES, NZD_DECIMAL_PLACES } from '../constants/index.js';
 
 export default class Transactions extends Command {
   static override args = {
@@ -17,6 +20,7 @@ export default class Transactions extends Command {
 
   static override examples = [
     '<%= config.bin %> <%= command.id %>',
+    '<%= config.bin %> <%= command.id %> --days 30',
     '<%= config.bin %> <%= command.id %> --since 2023-01-01 --until 2023-01-31',
     '<%= config.bin %> <%= command.id %> --minAmount 100 --maxAmount 500',
     '<%= config.bin %> <%= command.id %> --account acc_12345',
@@ -25,9 +29,15 @@ export default class Transactions extends Command {
     '<%= config.bin %> <%= command.id %> --parentCategory "Utilities"',
     '<%= config.bin %> <%= command.id %> --merchant "Amazon"',
     '<%= config.bin %> <%= command.id %> --parentCategory "Groceries" --merchant "Whole Foods"',
+    '<%= config.bin %> <%= command.id %> --days 30 --count  # Get count of transactions',
+    '<%= config.bin %> <%= command.id %> --merchant "Countdown" --days 30 --total  # Get total spent at merchant',
+    '<%= config.bin %> <%= command.id %> --direction out  # Show only spending/expenses',
+    '<%= config.bin %> <%= command.id %> --direction in   # Show only income',
+    '<%= config.bin %> <%= command.id %> --relative       # Show relative dates (e.g., "2d ago")',
   ];
 
   static override flags = {
+    ...dateFilterFlags(DEFAULT_TRANSACTION_DAYS_BACK),
     account: Flags.string({
       char: 'a',
       description: 'Account ID to filter transactions',
@@ -36,26 +46,12 @@ export default class Transactions extends Command {
       char: 'c',
       description: 'Transaction category to filter',
     }),
-    format: Flags.string({
-      char: 'f',
-      description: 'Output format (json, csv, table, list, ndjson)',
-      options: ['json', 'csv', 'table', 'list', 'ndjson'],
+    format: formatFlag,
+    maxAmount: amountFlag({
+      description: 'Maximum transaction amount (uses absolute value, works for both income and spending)',
     }),
-    maxAmount: Flags.integer({
-      description: 'Maximum transaction amount',
-    }),
-    minAmount: Flags.integer({
-      description: 'Minimum transaction amount',
-    }),
-    since: Flags.string({
-      char: 's',
-      description: 'Start date for transactions (YYYY-MM-DD) [default: 7 days ago]',
-      default: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    }),
-    until: Flags.string({
-      char: 'u',
-      default: new Date().toISOString().split('T')[0],
-      description: 'End date for transactions (YYYY-MM-DD) [default: today]',
+    minAmount: amountFlag({
+      description: 'Minimum transaction amount (uses absolute value, works for both income and spending)',
     }),
     type: Flags.string({
       char: 't',
@@ -64,7 +60,7 @@ export default class Transactions extends Command {
     parentCategory: Flags.string({
       char: 'p',
       description: 'Parent category to filter transactions',
-      options: ['professional services', 'household', 'lifestyle', 'appearance', 'transport', 'food', 'housing', 'education', 'health', 'utilities'],
+      options: [...PARENT_CATEGORIES],
     }),
     merchant: Flags.string({
       char: 'm',
@@ -75,204 +71,203 @@ export default class Transactions extends Command {
       description: 'Show detailed transaction info',
       default: false,
     }),
-    refresh: Flags.boolean({
+    refresh: refreshFlag,
+    quiet: quietFlag,
+    count: Flags.boolean({
+      description: 'Output only the count of matching transactions (useful for scripting)',
+      default: false,
+    }),
+    total: Flags.boolean({
+      description: 'Output only the total amount of matching transactions (useful for scripting)',
+      default: false,
+    }),
+    direction: Flags.string({
+      description: 'Filter by direction: "in" for income, "out" for spending',
+      options: ['in', 'out'],
+    }),
+    relative: Flags.boolean({
       char: 'r',
-      description: 'Force refresh from API (bypass cache)',
+      description: 'Show relative dates (e.g., "2d ago") instead of absolute dates in table view',
       default: false,
     }),
   };
 
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Transactions);
-    const format = flags.format ?? configService.get('format') ?? 'json';
-    const sinceDate = flags.since;
-    const untilParsed = new Date(flags.until);
-    const sinceParsed = new Date(sinceDate);
 
-    // If start and end are the same, shift end by one day
-    if (sinceParsed.toDateString() === untilParsed.toDateString()) {
-      untilParsed.setDate(untilParsed.getDate() + 1);
+    warnIfConfigCorrupted(this, flags.quiet);
+
+    // Resolve and validate format early (normalized to lowercase)
+    const format = resolveFormat(flags.format);
+
+    // Parse and validate date range
+    const dateResult = parseDateRange({
+      since: flags.since,
+      until: flags.until,
+      days: flags.days,
+      defaultDaysBack: DEFAULT_TRANSACTION_DAYS_BACK,
+      extendSameDayRange: true,
+    });
+    if (!dateResult.success) {
+      this.error(dateResult.error);
+    }
+    const { startDate: sinceDate, endDate: untilDate } = dateResult;
+
+    // Validate amount filters
+    const amountResult = validateAmountRange(flags.minAmount, flags.maxAmount);
+    if (!amountResult.success) {
+      this.error(amountResult.error);
     }
 
-    const untilDate = untilParsed.toISOString().split('T')[0];
+    // Validate mutually exclusive flags
+    if (flags.count && flags.total) {
+      this.error('Cannot use --count and --total together. Use one or the other.');
+    }
 
     try {
-      const cacheEnabled = configService.get<boolean>('cacheData') ?? false;
-      let transactionsData: EnrichedTransaction[];
-      let accounts: Account[];
-      let fromCache = false;
+      const cacheEnabled = isCacheEnabled();
 
-      // Check cache first if enabled and not forcing refresh
-      if (cacheEnabled && !flags.refresh && cacheService.isTransactionCacheValid(sinceDate, untilDate)) {
-        transactionsData = cacheService.getCachedTransactions(sinceDate, untilDate);
-        fromCache = true;
-      } else {
-        // Fetch from API
-        transactionsData = await apiService.listAllTransactions(sinceDate, untilDate);
-
-        // Update cache if enabled
-        if (cacheEnabled) {
-          cacheService.setTransactionCache(transactionsData);
-        }
-      }
+      // Fetch transactions with caching
+      const txResult = await cacheService.getTransactionsWithCache(
+        sinceDate,
+        untilDate,
+        flags.refresh,
+        cacheEnabled,
+        () => apiService.listAllTransactions(sinceDate, untilDate)
+      );
 
       // Filter transactions explicitly based on sinceDate
-      const transactionsDataFiltered = transactionsData.filter((tx: EnrichedTransaction) => new Date(tx.date) >= new Date(sinceDate));
+      // Pre-parse the sinceDate once to avoid repeated Date construction in the filter
+      const sinceDateParsed = new Date(sinceDate);
+      const transactionsDataFiltered = txResult.transactions.filter(
+        (tx: EnrichedTransaction) => new Date(tx.date) >= sinceDateParsed
+      );
 
-      // Get accounts (with caching)
-      if (cacheEnabled && !flags.refresh && cacheService.isAccountCacheValid()) {
-        // Use cached account summaries - convert to minimal Account-like objects for formatting
-        const cachedAccounts = cacheService.getCachedAccounts();
-        accounts = cachedAccounts.map((acc: AccountSummary) => ({
-          _id: acc.id ?? '',
-          name: acc.name,
-          formatted_account: acc.accountNumber,
-          type: acc.type,
-          connection: { name: acc.institution },
-          balance: { current: acc.balance, available: acc.availableBalance },
-        })) as unknown as Account[];
-      } else {
-        accounts = await apiService.listAccounts();
-        if (cacheEnabled) {
-          cacheService.setAccountCache(accounts);
-        }
-      }
+      // Fetch accounts with caching
+      const accResult = await cacheService.getAccountsWithCache(
+        flags.refresh,
+        cacheEnabled,
+        () => apiService.listAccounts()
+      );
+      const accounts = accResult.accounts;
+      const fromCache = txResult.fromCache || accResult.fromCache;
 
-      if (fromCache && format.toLowerCase() === 'table') {
-        console.log('(using cached data)\n');
+      if (fromCache && format === 'table' && !flags.quiet) {
+        this.log('(using cached data)\n');
       }
       
       // Map transactions to desired output format using the service
       const transactions = transactionProcessingService.formatTransactions(transactionsDataFiltered, accounts);
 
-      // Sort transactions by date
-      transactions.sort((a: FormattedTransaction, b: FormattedTransaction) => a.date.getTime() - b.date.getTime());
+      // Build filter object from flags
+      const filters: TransactionFilter = {
+        accountId: flags.account,
+        category: flags.category,
+        parentCategory: flags.parentCategory,
+        merchant: flags.merchant,
+        minAmount: flags.minAmount,
+        maxAmount: flags.maxAmount,
+        type: flags.type,
+        search: args.transaction,
+        direction: flags.direction as 'in' | 'out' | undefined,
+      };
 
-      let filteredTransactions = transactions;
+      // Apply all filters via service (also handles sorting)
+      const filteredTransactions = transactionProcessingService.applyFilters(transactions, filters);
 
-      // Filter by account ID if provided
-      if (flags.account) {
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.accountNumber === flags.account || transaction.accountName.toLowerCase() === (flags.account ?? '').toLowerCase()
-        );
+      if (filteredTransactions.length === 0) {
+        // Empty results are not an error - just inform the user
+        if (flags.count || flags.total) {
+          this.log('0');
+        } else if (!flags.quiet) {
+          // Build a helpful message showing what was searched
+          const appliedFilters: string[] = [];
+          if (filters.merchant) appliedFilters.push(`merchant="${filters.merchant}"`);
+          if (filters.category) appliedFilters.push(`category="${filters.category}"`);
+          if (filters.parentCategory) appliedFilters.push(`parentCategory="${filters.parentCategory}"`);
+          if (filters.accountId) appliedFilters.push(`account="${filters.accountId}"`);
+          if (filters.type) appliedFilters.push(`type="${filters.type}"`);
+          if (filters.minAmount !== undefined) appliedFilters.push(`minAmount=${filters.minAmount}`);
+          if (filters.maxAmount !== undefined) appliedFilters.push(`maxAmount=${filters.maxAmount}`);
+          if (filters.direction) appliedFilters.push(`direction=${filters.direction}`);
+          if (filters.search) appliedFilters.push(`search="${filters.search}"`);
+
+          this.log(`No transactions found between ${sinceDate} and ${untilDate}.`);
+          if (appliedFilters.length > 0) {
+            this.log(`Filters: ${appliedFilters.join(', ')}`);
+          }
+          this.log('');
+          this.log('Tips:');
+          this.log('  - Try a wider date range: --days 90');
+          this.log('  - Check available merchants: bank transactions --days 30 --format json | jq -r ".[].merchant" | sort -u');
+          if (filters.merchant) {
+            this.log('  - Merchant names are case-insensitive but must match exactly');
+          }
+        }
+        return;
       }
 
-      // Filter by category if provided
-      if (flags.category) {
-        const categoryFilter = flags.category.toLowerCase();
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.category.toLowerCase().includes(categoryFilter)
-        );
+      // If --count flag is set, output only the count and exit
+      if (flags.count) {
+        this.log(String(filteredTransactions.length));
+        return;
       }
 
-      // Filter by minimum amount if provided
-      if (flags.minAmount !== undefined) {
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.amount >= (flags.minAmount ?? 0)
-        );
+      // If --total flag is set, output only the sum of amounts and exit
+      if (flags.total) {
+        const total = filteredTransactions.reduce((sum: number, tx: FormattedTransaction) => sum + Number(tx.amount), 0);
+        this.log(total.toFixed(NZD_DECIMAL_PLACES));
+        return;
       }
 
-      // Filter by maximum amount if provided
-      if (flags.maxAmount !== undefined) {
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.amount <= (flags.maxAmount ?? Number.POSITIVE_INFINITY)
-        );
+      // Generate display-ready data via service (handles date formatting and field selection)
+      const displayData = transactionProcessingService.generateDisplayData(filteredTransactions, format, flags.details, flags.relative);
+
+      formatOutput(displayData, format);
+
+      // Show count summary for table format (always useful, doesn't require --details)
+      if (format === 'table' && !flags.quiet) {
+        this.log(`\n(${filteredTransactions.length} transaction${filteredTransactions.length === 1 ? '' : 's'})`);
       }
 
-      // Filter by transaction type if provided
-      if (flags.type) {
-        const typeFilter = flags.type.toLowerCase();
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.type.toLowerCase() === typeFilter
-        );
-      }
+      if (format === 'table' && flags.details && !flags.quiet) {
+        // Summary stats
+        const totalTransactions = filteredTransactions.length;
+        const totalAmount = filteredTransactions.reduce((sum: number, tx: FormattedTransaction) => sum + Number(tx.amount), 0);
+        this.log(`\nSummary: Total Transactions: ${totalTransactions} | Total Amount: $${totalAmount.toFixed(NZD_DECIMAL_PLACES)}`);
 
-      // New filter: filter by parentCategory if provided
-      if (flags.parentCategory) {
-        const parentCategoryFilter = flags.parentCategory.toLowerCase();
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.parentCategory.toLowerCase().includes(parentCategoryFilter)
-        );
-      }
-
-      // New filter: filter by merchant if provided
-      if (flags.merchant) {
-        const merchantFilter = flags.merchant.toLowerCase();
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.merchant.toLowerCase().includes(merchantFilter)
-        );
-      }
-
-      // Filter by transaction ID or description if provided as an argument
-      if (args.transaction) {
-        const transactionFilter = args.transaction.toLowerCase();
-        filteredTransactions = filteredTransactions.filter((transaction: FormattedTransaction) =>
-          transaction.id === args.transaction ||
-          transaction.description.toLowerCase().includes(transactionFilter)
-        );
-      }
-
-      if (filteredTransactions.length > 0) {
-        // Format the date for display
-        const formattedTransactions = filteredTransactions.map((transaction: FormattedTransaction) => ({
-          ...transaction,
-          date: transaction.date.toLocaleDateString(),
-        }));
-        
-        // If output is table and details is false, show a lean view
-        const displayData = (format.toLowerCase() === 'table' && !flags.details)
-          ? formattedTransactions.map((t) => ({
-              date: t.date,
-              account: t.accountName,
-              amount: t.amount,
-              description: t.description,
-              category: t.category,
-            }))
-          : formattedTransactions;
-        
-        formatOutput(displayData, format);
-        
-        if (format.toLowerCase() === 'table' && flags.details) {
-          // Existing summary
-          const totalTransactions = filteredTransactions.length;
-          const totalAmount = filteredTransactions.reduce((sum: number, tx: FormattedTransaction) => sum + Number(tx.amount), 0);
-          console.log(`\nSummary: Total Transactions: ${totalTransactions} | Total Amount: $${totalAmount.toFixed(2)}\n`);
-          
-          // New: Category Breakdown summary (enhanced), ignoring empty categories
-          const categorySummary = filteredTransactions.reduce<Record<string, number>>((acc: Record<string, number>, tx: FormattedTransaction) => {
-            // Skip transfer types; they net out across user accounts
-            if (tx.type === 'TRANSFER') {
-              return acc;
-            }
-
-            const category = tx.parentCategory.toLowerCase().trim();
-            if (category) {
-              acc[category] = (acc[category] || 0) + Number(tx.amount);
-            } else {
-              // if no category then add to 'Uncategorized'
-              acc['Uncategorized'] = (acc['Uncategorized'] || 0) + Number(tx.amount);
-            }
+        // Category Breakdown summary, ignoring empty categories and transfers
+        const categorySummary = filteredTransactions.reduce<Record<string, number>>((acc: Record<string, number>, tx: FormattedTransaction) => {
+          // Skip transfer types; they net out across user accounts
+          if (tx.type === 'TRANSFER') {
             return acc;
-          }, {});
-          // Calculate total spending (absolute amounts)
+          }
+
+          const category = tx.parentCategory.toLowerCase().trim();
+          if (category) {
+            acc[category] = (acc[category] || 0) + Number(tx.amount);
+          } else {
+            acc['Uncategorized'] = (acc['Uncategorized'] || 0) + Number(tx.amount);
+          }
+          return acc;
+        }, {});
+
+        // Only show category breakdown if there are non-transfer transactions
+        if (Object.keys(categorySummary).length > 0) {
           const totalSpending = Object.values(categorySummary).reduce((sum: number, amt: number) => sum + Math.abs(amt), 0);
-          console.log('Category Breakdown:');
-          // Sort categories by absolute amount descending
+          this.log('\nCategory Breakdown:');
           Object.entries(categorySummary)
             .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
             .forEach(([category, amount]) => {
               const pct = totalSpending ? ((Math.abs(amount) / totalSpending) * 100).toFixed(1) : '0.0';
-              console.log(`  ${category}: $${amount.toFixed(2)} (${pct}%)`);
+              this.log(`  ${category}: $${amount.toFixed(NZD_DECIMAL_PLACES)} (${pct}%)`);
             });
-          console.log('');
         }
-      } else {
-        this.error('No transactions found matching your criteria.');
+        this.log('');
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      this.error(`Error fetching transactions: ${error.message}`);
+    } catch (error) {
+      this.error(`Error fetching transactions: ${getErrorMessage(error)}`);
     }
   }
 }

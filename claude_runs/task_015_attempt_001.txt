@@ -1,0 +1,38 @@
+All checks pass. Here's a summary of the changes made:
+
+## Summary
+
+**Improvement: Consolidated currency formatting utility**
+
+### Changes Made:
+
+1. **`src/utils/output.ts`**: 
+   - Exported the `formatCurrency` function (was private)
+   - Enhanced it to use `toLocaleString('en-NZ')` for proper thousands separators
+   - Added JSDoc documentation with examples
+
+2. **`src/commands/overview.ts`**:
+   - Removed duplicate `formatCurrency()` and `formatCurrencyPlain()` private methods
+   - Now imports and uses the shared `formatCurrency()` from `output.ts`
+   - Added a small `colorCurrency()` helper that applies chalk coloring to the plain formatted output
+
+3. **`test/utils/output.test.ts`** (new file):
+   - Added 21 unit tests for output utilities:
+     - `formatCurrency`: 7 tests covering positive/negative amounts, rounding, thousands separators
+     - `formatRelativeTime`: 8 tests covering various time formats
+     - `isValidOutputFormat`: 3 tests for format validation
+     - `validateOutputFormat`: 3 tests for format normalization
+
+### Benefits:
+- **DRY**: Eliminated 15 lines of duplicate code
+- **Consistency**: All currency formatting now uses the same logic with thousands separators
+- **Testability**: The shared function is now unit tested, locking in behavior
+- **Maintainability**: Single source of truth for currency formatting
+
+### Test Results:
+- **157 → 178 tests** (21 new tests added)
+- All tests pass
+- Lint passes
+- Build succeeds
+
+SUCCESS

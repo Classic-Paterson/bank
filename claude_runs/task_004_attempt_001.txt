@@ -1,0 +1,39 @@
+All tasks completed successfully. Here's a summary of the improvement:
+
+## Summary
+
+**Feature Added:** Natural date shortcuts for `--since` and `--until` flags
+
+**What Changed:**
+1. `src/utils/date.ts` - Added `tryParseDateShortcut()` function and updated `parseDate()` to support natural shortcuts
+2. `src/utils/flags.ts` - Updated flag descriptions to mention the new shortcuts
+3. `test/utils/date.test.ts` - Added 12 new tests for the date shortcut functionality
+
+**New Capabilities:**
+Users can now use natural date shortcuts instead of YYYY-MM-DD format:
+
+```bash
+# Before (still works)
+bank transactions --since 2024-01-15
+
+# Now also works
+bank transactions --since today
+bank transactions --since yesterday  
+bank transactions --since 7d           # 7 days ago
+bank transactions --since 30days       # 30 days ago
+bank transactions --since 2w           # 2 weeks ago
+bank transactions --since 4weeks       # 4 weeks ago
+```
+
+**User Benefits:**
+- Reduces friction for common queries
+- More intuitive CLI experience
+- No new dependencies added
+- Fully backwards compatible
+
+**Test Results:**
+- 241 tests passing (12 new)
+- Build successful
+- Lint clean
+
+SUCCESS

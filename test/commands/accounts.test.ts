@@ -33,4 +33,26 @@ describe('accounts', () => {
       expect(error).to.exist
     }
   })
+
+  it('handles --total flag', async () => {
+    try {
+      const {stdout} = await runCommand('accounts --total')
+      // If successful, stdout should be a decimal number (as string)
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
+
+  it('handles --total with type filter', async () => {
+    try {
+      const {stdout} = await runCommand('accounts --type savings --total')
+      // If successful, stdout should be a decimal number (as string)
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
 })

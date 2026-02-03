@@ -1,0 +1,37 @@
+The improvement is complete. Here's what was changed:
+
+## Summary of Changes
+
+### Enhanced Empty State Messages
+
+**`src/commands/transactions.ts`** - When no transactions match the search criteria, users now see:
+- The exact date range that was searched
+- All active filters displayed clearly
+- Helpful debugging tips including:
+  - Suggestion to widen the date range
+  - A `jq` command to list available merchants
+  - Note that merchant names are case-insensitive
+
+**`src/commands/accounts.ts`** - When no accounts match, users now see:
+- The filters that were applied
+- Tips for debugging (remove filters, type case-insensitivity note)
+
+### Before (unhelpful):
+```
+No transactions found matching your criteria.
+```
+
+### After (helpful):
+```
+No transactions found between 2024-01-01 and 2024-02-03.
+Filters: merchant="Countdwn"
+
+Tips:
+  - Try a wider date range: --days 90
+  - Check available merchants: bank transactions --days 30 --format json | jq -r ".[].merchant" | sort -u
+  - Merchant names are case-insensitive but must match exactly
+```
+
+This change significantly improves the UX by helping users understand why they got no results and how to debug the issue - a common pain point in CLI tools.
+
+SUCCESS

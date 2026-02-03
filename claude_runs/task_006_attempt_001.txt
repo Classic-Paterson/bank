@@ -1,0 +1,43 @@
+The improvement has been implemented successfully. Here's a summary of the changes:
+
+## Changes Made
+
+**Added `--relative` flag to the transactions command** that shows relative dates (e.g., "today", "yesterday", "2d ago", "1w ago") instead of absolute dates in table view. This makes the CLI output feel more natural and "pro" for users who want quick glances at recent activity.
+
+### Files Modified:
+
+1. **`src/services/transaction-processing.service.ts`**:
+   - Added `useRelativeTime` parameter to `generateDisplayData()` method
+   - Added private `formatRelativeTime()` helper method that formats dates as:
+     - "today" / "yesterday"
+     - "Xd ago" for recent days (2-6 days)
+     - "Xw ago" for weeks (7-29 days)
+     - Falls back to locale date for older transactions (30+ days)
+   - Handles future dates with "in X" prefix for pending transactions
+
+2. **`src/commands/transactions.ts`**:
+   - Added `--relative` / `-r` flag with description
+   - Added example in command help text
+   - Passed flag value to `generateDisplayData()`
+
+3. **`test/services/transaction-processing.service.test.ts`**:
+   - Added comprehensive test suite for relative time formatting:
+     - "today" formatting
+     - "yesterday" formatting  
+     - "Xd ago" formatting
+     - "Xw ago" formatting
+     - Fallback to locale date for old transactions
+     - Verification that relative time is opt-in
+
+### Usage:
+```bash
+# Show transactions with relative dates
+bank transactions --relative
+bank transactions -r
+
+# Combine with other flags
+bank transactions --days 14 --relative
+bank transactions --merchant Countdown -r
+```
+
+SUCCESS

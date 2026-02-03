@@ -1,0 +1,14 @@
+The changes are in place. Summary of the improvement:
+
+**Change:** Added `--quiet` / `-q` flag to the `overview` command for consistency with other commands (`accounts`, `transactions`, `categories`).
+
+**Impact:**
+1. Users can now suppress informational messages in `overview` output (e.g., cache status, "(using cached data)" messages)
+2. Better for scripting when output needs to be cleaner
+3. Consistent CLI UX across all commands
+
+**Files modified:**
+- `src/commands/overview.ts`: Added `quietFlag` import and flag definition, passed quiet state to `warnIfConfigCorrupted`, conditionally show cache-related informational messages
+- `src/utils/flags.ts`: Updated comment to include `overview` in the list of commands using `quietFlag`
+
+SUCCESS

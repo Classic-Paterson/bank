@@ -1,0 +1,16 @@
+The improvement has been successfully implemented:
+
+**Change made**: Added a grand total row to the `categories` command output that sums all spending across categories per month.
+
+**What it does**:
+- For table format: Adds a `═════` separator followed by a `TOTAL` row showing the sum of all spending per month
+- For other formats (json, csv, ndjson, list): Adds a `total` row with the same sums
+
+**Why this is valuable**:
+- Users no longer need to manually sum categories to see total monthly spending
+- Makes the categories output immediately actionable for budgeting
+- Consistent with how financial reports typically present data
+
+**Files changed**: `src/commands/categories.ts:141-170`
+
+SUCCESS

@@ -1,21 +1,41 @@
 import { Args, Command, Flags } from '@oclif/core';
+import inquirer from 'inquirer';
+
 import { configService } from '../services/config.service.js';
+import { getErrorMessage } from '../utils/error.js';
 import { SettingDefinition } from '../types/index.js';
+import { OUTPUT_FORMATS, MASK_MIN_LENGTH_FOR_PARTIAL } from '../constants/index.js';
+
+// Sensitive settings that should be masked when displayed
+const SENSITIVE_SETTINGS = new Set(['appToken', 'userToken']);
+
+/**
+ * Masks a sensitive value, showing only first/last 4 chars for longer values.
+ * Short values (< MASK_MIN_LENGTH_FOR_PARTIAL) are fully masked for security.
+ */
+function maskSensitiveValue(value: string): string {
+  if (value.length < MASK_MIN_LENGTH_FOR_PARTIAL) {
+    return '*'.repeat(value.length);
+  }
+  return `${value.substring(0, 4)}${'*'.repeat(value.length - 8)}${value.substring(value.length - 4)}`;
+}
 
 // Define the valid settings that can be configured
 const VALID_SETTINGS: Record<string, SettingDefinition> = {
-  api_key: {
-    description: 'API key for authentication',
-    type: 'string'
+  appToken: {
+    description: 'Akahu app token for API authentication',
+    type: 'string',
+    sensitive: true
   },
-  app_token: {
-    description: 'Application token for session management',
-    type: 'string'
+  userToken: {
+    description: 'Akahu user token for API authentication',
+    type: 'string',
+    sensitive: true
   },
   format: {
-    description: 'Output format (json, table, csv)',
+    description: 'Default output format (json, csv, table, list, ndjson)',
     type: 'string',
-    options: ['json', 'table', 'csv'],
+    options: [...OUTPUT_FORMATS],
     default: 'json'
   },
   cacheData: {
@@ -27,6 +47,11 @@ const VALID_SETTINGS: Record<string, SettingDefinition> = {
     description: 'Comma-separated list of allowed destination account numbers for transfers (for safety)',
     type: 'array',
     default: []
+  },
+  transferMaxAmount: {
+    description: 'Maximum transfer amount in NZD (safety limit)',
+    type: 'number',
+    default: 50000
   }
 };
 
@@ -50,17 +75,25 @@ export default class Settings extends Command {
       char: 'h',
       description: 'Show available settings',
     }),
+    yes: Flags.boolean({
+      char: 'y',
+      description: 'Skip confirmation prompt for reset',
+      default: false,
+    }),
   };
 
   static description = 'Configure CLI preferences';
 
   static examples = [
     '$ bank settings list',
-    '$ bank settings set api_key your_api_key',
+    '$ bank settings set appToken your_app_token',
+    '$ bank settings set userToken your_user_token',
     '$ bank settings set format table',
     '$ bank settings set cacheData true',
-    '$ bank settings get api_key',
-    '$ bank settings reset api_key',
+    '$ bank settings set transferMaxAmount 100000',
+    '$ bank settings get appToken',
+    '$ bank settings reset format',
+    '$ bank settings reset format -y  # Skip confirmation prompt',
     '$ bank settings --help',
   ];
 
@@ -85,18 +118,14 @@ export default class Settings extends Command {
           } else if (!value) {
             this.error('Please provide a value for the set action.');
           } else {
-            // Validate the key is a recognized setting
-            if (!this.validateKey(key)) {
-              return;
-            }
-            
-            // Validate the value based on the setting type
+            // Validate the key is a recognized setting (throws on invalid)
+            this.validateKey(key);
+
+            // Validate the value based on the setting type (throws on invalid)
             const processedValue = this.validateAndProcessValue(key, value);
-            if (processedValue !== undefined) {
-              configService.set(key, processedValue);
-              const displayValue = Array.isArray(processedValue) ? processedValue.join(', ') : processedValue;
-              this.log(`Setting '${key}' updated to '${displayValue}'.`);
-            }
+            configService.set(key, processedValue);
+            const displayValue = Array.isArray(processedValue) ? processedValue.join(', ') : processedValue;
+            this.log(`Setting '${key}' updated to '${displayValue}'.`);
           }
           break;
 
@@ -104,14 +133,15 @@ export default class Settings extends Command {
           if (!key) {
             this.error('Please provide a key for the get action.');
           } else {
-            // Validate the key is a recognized setting
-            if (!this.validateKey(key)) {
-              return;
-            }
-            
+            // Validate the key is a recognized setting (throws on invalid)
+            this.validateKey(key);
+
             const configValue = configService.get(key);
             if (configValue !== undefined) {
-              const displayValue = Array.isArray(configValue) ? configValue.join(', ') : configValue;
+              let displayValue = Array.isArray(configValue) ? configValue.join(', ') : String(configValue);
+              if (SENSITIVE_SETTINGS.has(key) && typeof configValue === 'string') {
+                displayValue = maskSensitiveValue(configValue);
+              }
               this.log(`${key}: ${displayValue}`);
             } else {
               const defaultValue = VALID_SETTINGS[key]?.default;
@@ -128,14 +158,17 @@ export default class Settings extends Command {
         case 'list': {
           const config = configService.getAll();
           this.log('Available settings:');
-          
+
           // Display all valid settings with their current values or defaults
           for (const [settingKey, settingInfo] of Object.entries(VALID_SETTINGS)) {
             const currentValue = config[settingKey];
             const defaultValue = settingInfo.default;
-            
+
             if (currentValue !== undefined) {
-              const displayValue = Array.isArray(currentValue) ? currentValue.join(', ') : currentValue;
+              let displayValue = Array.isArray(currentValue) ? currentValue.join(', ') : String(currentValue);
+              if (SENSITIVE_SETTINGS.has(settingKey) && typeof currentValue === 'string') {
+                displayValue = maskSensitiveValue(currentValue);
+              }
               this.log(`${settingKey}: ${displayValue} (${settingInfo.description})`);
             } else if (defaultValue !== undefined) {
               const displayDefault = Array.isArray(defaultValue) ? defaultValue.join(', ') : defaultValue;
@@ -151,11 +184,29 @@ export default class Settings extends Command {
           if (!key) {
             this.error('Please provide a key for the reset action.');
           } else {
-            // Validate the key is a recognized setting
-            if (!this.validateKey(key)) {
-              return;
+            // Validate the key is a recognized setting (throws on invalid)
+            this.validateKey(key);
+
+            // Confirm before resetting (unless -y flag is provided)
+            if (!flags.yes) {
+              const defaultValue = VALID_SETTINGS[key]?.default;
+              const defaultDisplay = defaultValue !== undefined
+                ? ` to default value: ${Array.isArray(defaultValue) ? defaultValue.join(', ') : defaultValue}`
+                : '';
+
+              const { proceed } = await inquirer.prompt([{
+                type: 'confirm',
+                name: 'proceed',
+                message: `Reset setting '${key}'${defaultDisplay}?`,
+                default: false,
+              }]);
+
+              if (!proceed) {
+                this.log('Reset cancelled.');
+                break;
+              }
             }
-            
+
             configService.reset(key);
             const defaultValue = VALID_SETTINGS[key]?.default;
             if (defaultValue !== undefined) {
@@ -171,8 +222,8 @@ export default class Settings extends Command {
           this.error(`Unknown action '${action}'. Available actions are: set, get, list, reset.`);
           break;
       }
-    } catch (error: any) {
-      this.error(`Error performing '${action}' action: ${error.message}`);
+    } catch (error) {
+      this.error(`Error performing '${action}' action: ${getErrorMessage(error)}`);
     }
   }
 
@@ -193,17 +244,17 @@ export default class Settings extends Command {
     }
   }
 
-  private validateKey(key: string): boolean {
-    if (!Object.keys(VALID_SETTINGS).includes(key)) {
-      this.error(`Invalid setting '${key}'. Run 'bank settings --help' to see available settings.`);
-      return false;
+  private validateKey(key: string): void {
+    const validKeys = Object.keys(VALID_SETTINGS);
+    if (!validKeys.includes(key)) {
+      const available = validKeys.join(', ');
+      this.error(`Invalid setting '${key}'. Available settings: ${available}`);
     }
-    return true;
   }
 
-  private validateAndProcessValue(key: string, value: string): any {
+  private validateAndProcessValue(key: string, value: string): string | boolean | number | string[] {
     const setting = VALID_SETTINGS[key];
-    
+
     if (setting.type === 'boolean') {
       // Handle boolean conversion
       const boolValue = value.toLowerCase();
@@ -211,10 +262,18 @@ export default class Settings extends Command {
         return true;
       } else if (['false', '0', 'no', 'n'].includes(boolValue)) {
         return false;
-      } else {
-        this.error(`Invalid boolean value for '${key}'. Use true/false, yes/no, or 1/0.`);
-        return undefined;
       }
+      this.error(`Invalid boolean value for '${key}'. Use true/false, yes/no, or 1/0.`);
+    } else if (setting.type === 'number') {
+      // Handle number conversion
+      const numValue = parseFloat(value);
+      if (isNaN(numValue)) {
+        this.error(`Invalid number value for '${key}'. Please enter a valid number.`);
+      }
+      if (numValue < 0) {
+        this.error(`Invalid value for '${key}'. Value must be non-negative.`);
+      }
+      return numValue;
     } else if (setting.type === 'array') {
       // Handle array conversion (comma-separated values)
       if (value.trim() === '') {
@@ -225,10 +284,9 @@ export default class Settings extends Command {
       // Handle enum string values
       if (!setting.options.includes(value)) {
         this.error(`Invalid value for '${key}'. Valid options are: ${setting.options.join(', ')}`);
-        return undefined;
       }
     }
-    
+
     return value;
   }
 }

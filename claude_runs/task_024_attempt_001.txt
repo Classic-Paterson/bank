@@ -1,0 +1,9 @@
+The fix corrects a grammatical issue in `formatRelativeTime()` where "1 weeks ago" and "1 months ago" are now properly rendered as "1 week ago" and "1 month ago" (singular when count equals 1).
+
+**Change summary:**
+- Fixed in `src/utils/output.ts:25-28`
+- Changed `${Math.floor(diffDays / 7)} weeks ago` to properly handle singular/plural
+- Changed `${Math.floor(diffDays / 30)} months ago` to properly handle singular/plural
+- Build passes, all 47 tests pass, lint is clean
+
+SUCCESS

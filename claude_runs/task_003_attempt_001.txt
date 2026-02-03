@@ -1,0 +1,29 @@
+The implementation is complete. Here's a summary of the changes:
+
+## Summary
+
+Added a `--direction` filter to the `transactions` and `query` commands, allowing users to easily filter transactions by:
+- `--direction in` - Show only income (positive amounts)
+- `--direction out` - Show only spending/expenses (negative amounts)
+
+### Files Modified:
+
+1. **src/types/index.ts** - Added `direction?: 'in' | 'out'` to `TransactionFilter` interface
+2. **src/services/transaction-processing.service.ts** - Added direction filter logic to `applyFilters()`
+3. **src/commands/transactions.ts** - Added `--direction` flag and examples
+4. **src/commands/query.ts** - Added `--direction` flag for saved queries
+5. **test/services/transaction-processing.service.test.ts** - Added 4 unit tests for direction filter
+6. **test/commands/transactions.test.ts** - Added 3 command-level tests
+
+### Why this matters for users:
+- Common use case: "Show me just my expenses" or "Show me just my income"
+- Previously required workarounds with amount filters
+- Works with saved queries - users can create "spending-only" or "income-only" query presets
+- Intuitive naming: `in` (money coming in) and `out` (money going out)
+
+### Tests:
+- Build passes ✓
+- All 229 tests pass (222 existing + 7 new) ✓
+- Lint passes ✓
+
+SUCCESS

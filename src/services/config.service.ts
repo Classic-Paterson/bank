@@ -16,6 +16,7 @@ class ConfigService {
   private configDir: string;
   private configFile: string;
   private config: AppConfig;
+  private _configLoadError: boolean = false;
 
   constructor() {
     this.configDir = path.join(homedir(), CONFIG_DIR_NAME);
@@ -38,8 +39,10 @@ class ConfigService {
     try {
       const data = fs.readFileSync(this.configFile, 'utf8');
       return JSON.parse(data) as AppConfig;
-    } catch (error) {
-      console.warn(`Warning: Could not parse config file. Using defaults.`);
+    } catch {
+      // Config file is corrupted - use defaults and flag the error
+      // Commands can check configService.hadLoadError to warn the user
+      this._configLoadError = true;
       return { format: DEFAULT_FORMAT };
     }
   }
@@ -78,28 +81,15 @@ class ConfigService {
   has(key: string): boolean {
     return key in this.config;
   }
+
+  /**
+   * Returns true if the config file failed to load (corrupted/invalid JSON).
+   * Commands can check this to warn users if needed.
+   */
+  get hadLoadError(): boolean {
+    return this._configLoadError;
+  }
 }
 
 // Export singleton instance
 export const configService = new ConfigService();
-
-// Legacy compatibility functions
-export function getConfig(key: string) {
-  return configService.get(key);
-}
-
-export function setConfig(key: string, value: any) {
-  return configService.set(key, value);
-}
-
-export function resetConfig(key: string) {
-  return configService.reset(key);
-}
-
-export function getAllConfig() {
-  return configService.getAll();
-}
-
-export function saveConfig() {
-  // This is now handled automatically by the service
-}

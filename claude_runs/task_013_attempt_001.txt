@@ -1,0 +1,31 @@
+All 157 tests pass and linting is clean.
+
+## Summary of Changes
+
+I made a targeted safety improvement to prevent accidental destructive operations:
+
+### Changes Made
+
+**1. `src/commands/cache.ts`**
+- Added confirmation prompt before clearing cache data
+- Added `-y/--yes` flag to skip confirmation (for scripts/automation)
+- Updated examples to show the `-y` flag usage
+
+**2. `src/commands/settings.ts`**
+- Added confirmation prompt before resetting settings to defaults
+- Added `-y/--yes` flag to skip confirmation
+- Updated examples to show the `-y` flag usage
+
+**3. `test/commands/cache.test.ts`**
+- Updated tests to use `-y` flag for non-interactive test execution
+
+### Why This Matters
+
+This change improves **Correctness & Safety** (Priority 1 from the goals):
+- Prevents accidental cache clearing which could force unnecessary API calls
+- Prevents accidental settings reset which could remove tokens or preferences
+- Matches the safety pattern already established in the `transfer` command
+- Maintains scriptability via the `-y` flag
+- No new dependencies added (uses existing `inquirer` package)
+
+SUCCESS

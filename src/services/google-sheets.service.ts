@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
+import { homedir } from 'os';
 import { OAuth2Client } from 'google-auth-library';
 import { google } from 'googleapis';
 import {
@@ -10,18 +11,29 @@ import {
 } from '../constants/index.js';
 import { GoogleOAuthConfig } from '../types/index.js';
 
+export type Logger = (message: string) => void;
+
 /**
  * Service for handling Google OAuth2 authentication and Google Sheets operations
  */
 class GoogleSheetsService {
   private tokenPath: string;
+  private _tokenLoadError: boolean = false;
 
   constructor() {
-    const homeDir = process.env.HOME || process.env.USERPROFILE;
+    // Use os.homedir() as primary, with env vars as fallback for edge cases
+    const homeDir = homedir() || process.env.HOME || process.env.USERPROFILE;
     if (!homeDir) {
       throw new Error('Cannot determine home directory for token storage.');
     }
     this.tokenPath = path.join(homeDir, OAUTH_TOKENS_FILE_NAME);
+  }
+
+  /**
+   * Returns true if the stored token failed to load (corrupted/invalid JSON).
+   */
+  get hadTokenLoadError(): boolean {
+    return this._tokenLoadError;
   }
 
   /**
@@ -40,25 +52,27 @@ class GoogleSheetsService {
 
   /**
    * Get access token through OAuth2 flow
+   * @param oAuth2Client The OAuth2 client
+   * @param log Optional logger function (defaults to console.log)
    */
-  async getAccessToken(oAuth2Client: OAuth2Client): Promise<any> {
+  async getAccessToken(oAuth2Client: OAuth2Client, log: Logger = console.log): Promise<any> {
     const authUrl = oAuth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: [GOOGLE_SHEETS_SCOPE],
     });
 
-    console.log('Authorize this app by visiting this URL:', authUrl);
+    log(`Authorize this app by visiting this URL: ${authUrl}`);
 
     const code = await this.promptForAuthCode();
-    
+
     try {
       const tokenResponse = await oAuth2Client.getToken(code);
       const token = tokenResponse.tokens;
-      
+
       oAuth2Client.setCredentials(token);
       fs.writeFileSync(this.tokenPath, JSON.stringify(token), { mode: SECURE_FILE_MODE });
-      console.log('Token stored to', this.tokenPath);
-      
+      log(`Token stored to ${this.tokenPath}`);
+
       return token;
     } catch (error) {
       throw new Error(`Failed to exchange authorization code for tokens: ${error}`);
@@ -95,21 +109,25 @@ class GoogleSheetsService {
       const token = JSON.parse(tokenContent);
       oAuth2Client.setCredentials(token);
       return true;
-    } catch (error) {
-      console.warn('Warning: Could not load stored token. Re-authentication required.');
+    } catch {
+      // Token file is corrupted - silently return false to trigger re-auth
+      // Commands can check googleSheetsService.hadTokenLoadError if they need to warn
+      this._tokenLoadError = true;
       return false;
     }
   }
 
   /**
    * Initialize authenticated Google Sheets client
+   * @param clientSecretFile Path to the OAuth2 client secret JSON file
+   * @param log Optional logger function for OAuth flow messages (defaults to console.log)
    */
-  async initializeSheetsClient(clientSecretFile: string) {
+  async initializeSheetsClient(clientSecretFile: string, log: Logger = console.log) {
     const oAuth2Client = this.createOAuth2Client(clientSecretFile);
-    
+
     const tokenLoaded = await this.loadStoredToken(oAuth2Client);
     if (!tokenLoaded) {
-      await this.getAccessToken(oAuth2Client);
+      await this.getAccessToken(oAuth2Client, log);
     }
 
     return google.sheets({ version: 'v4', auth: oAuth2Client });

@@ -1,0 +1,16 @@
+**Summary of changes:**
+
+Added `--quiet` (`-q`) flag to `accounts` and `transactions` commands. This flag:
+- Suppresses "(using cached data)" messages
+- Suppresses "No X found matching your criteria" messages  
+- Suppresses table summary lines (total counts/balances)
+
+This makes the CLI more script-friendly when piping output to tools like `jq`, `grep`, or when embedding in shell scripts.
+
+Files modified:
+- `src/commands/accounts.ts:39-43` - Added quiet flag definition
+- `src/commands/accounts.ts:63,99,109,187,195` - Conditional output based on quiet flag
+- `src/commands/transactions.ts:87-91` - Added quiet flag definition
+- `src/commands/transactions.ts:172,196,219` - Conditional output based on quiet flag
+
+SUCCESS

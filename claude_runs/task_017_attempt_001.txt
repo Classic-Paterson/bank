@@ -1,0 +1,33 @@
+All changes have been implemented and verified. Here's a summary of the improvements made:
+
+## Changes Made
+
+### 1. **Google Sheets home directory detection** (`src/services/google-sheets.service.ts`)
+- Added `import { homedir } from 'os'` and use `homedir()` as primary method
+- Keeps env var fallback for edge cases
+- Fixes reliability on Windows and non-standard environments
+
+### 2. **Output error handlers** (`src/utils/output.ts`)
+- Changed `console.error()` to `throw new Error()` in 4 format functions
+- Provides clearer error messages and proper error propagation
+- Makes debugging easier when unexpected data types are passed
+
+### 3. **Transfer amount validation** (`src/commands/transfer.ts`)
+- Replaced fragile string-splitting with regex validation: `/^\d+(\.\d{1,2})?$/`
+- Now properly rejects:
+  - Scientific notation (e.g., "1e-3")
+  - Trailing decimal without digits (e.g., "100.")
+  - More than 2 decimal places
+- Better error message guides users on correct format
+
+### 4. **Cache service date parsing performance** (`src/services/cache.service.ts`)
+- Pre-parse all dates once before loops in `isRangeCovered()` and `mergeDateRanges()`
+- Eliminates O(n) repeated `new Date()` calls in tight loops
+- Improves performance for large cached date ranges
+
+### 5. **Merchant filter validation** (`src/services/transaction-processing.service.ts`)
+- Filter out empty strings from comma-separated merchant list
+- Prevents empty strings from matching all transactions (overly broad matches)
+- Maintains backward compatibility - non-empty merchant filters work as before
+
+SUCCESS

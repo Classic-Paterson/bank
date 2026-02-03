@@ -1,0 +1,14 @@
+The improvement has been successfully implemented:
+
+**Change Summary:**
+- **Issue**: The `overview` command accepted `--days 0` or negative values (e.g., `--days -5`) which would cause confusing behavior. This was inconsistent with `transactions` and `categories` commands which properly validate `--days >= 1` via `parseDateRange()`.
+
+- **Fix**: Added validation at the start of the `overview` command's `run()` method to reject `--days` values less than 1 with a clear error message.
+
+- **Tests**: Added 2 new test cases to `test/commands/overview.test.ts`:
+  - `rejects --days value of 0`
+  - `rejects negative --days value`
+
+- **Result**: 180 tests pass (up from 178), build succeeds, lint passes.
+
+SUCCESS

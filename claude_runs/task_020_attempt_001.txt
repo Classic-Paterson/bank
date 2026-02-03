@@ -1,0 +1,22 @@
+The improvement has been implemented and all checks pass. Here's a summary of what was changed:
+
+## Changes Made
+
+**File: `src/services/cache.service.ts`**
+1. Added `lastWriteError` private field to track write failures
+2. Modified `saveTransactionCache()` to capture and store error messages on failure, clear errors on success
+3. Modified `saveAccountCache()` similarly  
+4. Added `getLastWriteError()` method to retrieve the last error message
+5. Added `isCacheWritable()` helper to easily check if caching is working
+
+**File: `src/commands/cache.ts`**
+1. Enhanced `cache info` command to display any cache write errors using `this.warn()`
+
+## Impact
+
+- **Before**: Cache write failures were completely silent. Users had no way to know caching wasn't working.
+- **After**: `bank cache info` now shows a warning if the last cache write failed, and other commands can use `cacheService.getLastWriteError()` or `cacheService.isCacheWritable()` to detect and report issues.
+
+This is a small, non-breaking change that improves observability without adding complexity or new dependencies.
+
+SUCCESS

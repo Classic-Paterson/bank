@@ -1,5 +1,12 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { Command, Flags } from '@oclif/core';
+import { parse } from 'csv-parse/sync';
+
+import { CONFIG_DIR_NAME } from '../constants/index.js';
 import { googleSheetsService } from '../services/google-sheets.service.js';
+import { getErrorMessage } from '../utils/error.js';
 
 // Helper to read from stdin
 async function readStdin(): Promise<string> {
@@ -27,9 +34,9 @@ export default class Sync extends Command {
     }),
     oauthClientKey: Flags.string({
       char: 'o',
-      description: 'Path to the OAuth2 client secret JSON file (uses GOOGLE_OAUTH_CLIENT_KEY env var if not set)',
-      default: '/Users/reecepaterson/.bankcli/client_secret.json'
-
+      description: 'Path to the OAuth2 client secret JSON file (uses GOOGLE_OAUTH_CLIENT_KEY env var or ~/.bankcli/client_secret.json)',
+      env: 'GOOGLE_OAUTH_CLIENT_KEY',
+      default: join(homedir(), CONFIG_DIR_NAME, 'client_secret.json'),
     })
   }
 
@@ -54,21 +61,21 @@ export default class Sync extends Command {
       if (!csvData.trim()) {
         throw new Error('Empty CSV data');
       }
-    } catch (err: any) {
-      this.error(`Error reading CSV: ${err.message}`, { exit: 1 });
+    } catch (err) {
+      this.error(`Error reading CSV: ${getErrorMessage(err)}`, { exit: 1 });
     }
 
-    // Parse CSV data into a 2D array
-    const rows: string[][] = csvData
-      .split('\n')
-      .filter(line => line.trim() !== '')
-      .map(line => line.split(','));
+    // Parse CSV data into a 2D array (handles quoted fields, commas in values, etc.)
+    const rows: string[][] = parse(csvData, {
+      relax_column_count: true,
+      skip_empty_lines: true,
+    });
 
     let targetSheetId = sheetIdFlag;
 
     try {
-      // Initialize Google Sheets client
-      const sheets = await googleSheetsService.initializeSheetsClient(oauthClientKeyPath);
+      // Initialize Google Sheets client (pass this.log for OAuth flow messages)
+      const sheets = await googleSheetsService.initializeSheetsClient(oauthClientKeyPath, (msg) => this.log(msg));
 
       // If no sheet ID provided, create a new spreadsheet
       if (!targetSheetId) {
@@ -81,8 +88,8 @@ export default class Sync extends Command {
 
       const appendedRows = rows.length - 1; // assuming the first row is a header
       this.log(`✔ Successfully appended ${appendedRows} transactions to Google Sheet (https://docs.google.com/spreadsheets/d/${targetSheetId}).`);
-    } catch (err: any) {
-      this.error(`Error syncing to Google Sheets: ${err.message}`, { exit: 1 });
+    } catch (err) {
+      this.error(`Error syncing to Google Sheets: ${getErrorMessage(err)}`, { exit: 1 });
     }
   }
 }

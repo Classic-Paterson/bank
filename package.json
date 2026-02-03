@@ -16,6 +16,7 @@
     "axios": "^1.7.7",
     "chalk": "^5.3.0",
     "cli-table3": "^0.6.5",
+    "csv-parse": "^6.1.0",
     "csv-stringify": "^6.5.1",
     "google-auth-library": "^9.15.1",
     "googleapis": "^146.0.0",

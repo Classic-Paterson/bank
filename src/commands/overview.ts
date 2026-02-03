@@ -1,13 +1,16 @@
-import { Command, Flags } from '@oclif/core';
-import { Account, EnrichedTransaction } from 'akahu';
+import { Command } from '@oclif/core';
+import { Account } from 'akahu';
 import chalk from 'chalk';
 
 import { apiService } from '../services/api.service.js';
-import { configService } from '../services/config.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { transactionProcessingService } from '../services/transaction-processing.service.js';
-import { FormattedTransaction, AccountSummary } from '../types/index.js';
-import { EXCLUDED_TRANSACTION_TYPES } from '../constants/index.js';
+import { FormattedTransaction } from '../types/index.js';
+import { isExcludedTransactionType, DEFAULT_OVERVIEW_DAYS_BACK } from '../constants/index.js';
+import { formatRelativeTime, formatCurrency } from '../utils/output.js';
+import { getErrorMessage } from '../utils/error.js';
+import { parseDateRange } from '../utils/date.js';
+import { refreshFlag, quietFlag, dateFilterFlags, warnIfConfigCorrupted, isCacheEnabled } from '../utils/flags.js';
 
 export default class Overview extends Command {
   static description = 'Display a financial dashboard with account balances, spending summary, and recent activity';
@@ -15,97 +18,63 @@ export default class Overview extends Command {
   static override examples = [
     '<%= config.bin %> <%= command.id %>',
     '<%= config.bin %> <%= command.id %> --days 30',
+    '<%= config.bin %> <%= command.id %> --since 2024-01-01 --until 2024-01-31',
     '<%= config.bin %> <%= command.id %> --refresh',
   ];
 
   static override flags = {
-    days: Flags.integer({
-      char: 'd',
-      description: 'Number of days to include in spending analysis',
-      default: 30,
-    }),
-    refresh: Flags.boolean({
-      char: 'r',
-      description: 'Force refresh from API (bypass cache)',
-      default: false,
-    }),
+    ...dateFilterFlags(DEFAULT_OVERVIEW_DAYS_BACK),
+    refresh: refreshFlag,
+    quiet: quietFlag,
   };
 
-  private formatCurrency(amount: number): string {
-    const formatted = Math.abs(amount).toLocaleString('en-NZ', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return amount < 0 ? chalk.red(`-$${formatted}`) : chalk.green(`$${formatted}`);
-  }
-
-  private formatCurrencyPlain(amount: number): string {
-    const formatted = Math.abs(amount).toLocaleString('en-NZ', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return amount < 0 ? `-$${formatted}` : `$${formatted}`;
-  }
-
-  private getRelativeTime(date: Date): string {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'yesterday';
-    return `${diffDays}d ago`;
+  /**
+   * Apply chalk coloring to a formatted currency string.
+   * Green for positive, red for negative.
+   */
+  private colorCurrency(amount: number): string {
+    const formatted = formatCurrency(amount);
+    return amount < 0 ? chalk.red(formatted) : chalk.green(formatted);
   }
 
   public async run(): Promise<void> {
     const { flags } = await this.parse(Overview);
-    const cacheEnabled = configService.get<boolean>('cacheData') ?? false;
 
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - flags.days);
+    warnIfConfigCorrupted(this, flags.quiet);
 
-    const sinceDate = startDate.toISOString().split('T')[0];
-    const untilDate = endDate.toISOString().split('T')[0];
+    // Parse and validate date range using shared utility
+    const dateResult = parseDateRange({
+      since: flags.since,
+      until: flags.until,
+      days: flags.days,
+      defaultDaysBack: DEFAULT_OVERVIEW_DAYS_BACK,
+    });
+    if (!dateResult.success) {
+      this.error(dateResult.error);
+    }
+    const { startDate: sinceDate, endDate: untilDate, startParsed, endParsed } = dateResult;
+
+    const cacheEnabled = isCacheEnabled();
 
     try {
-      let accounts: Account[];
-      let transactions: EnrichedTransaction[];
-      let fromCache = false;
+      // Fetch accounts with caching
+      const accResult = await cacheService.getAccountsWithCache(
+        flags.refresh,
+        cacheEnabled,
+        () => apiService.listAccounts()
+      );
+      const accounts = accResult.accounts;
 
-      // Fetch accounts
-      if (cacheEnabled && !flags.refresh && cacheService.isAccountCacheValid()) {
-        const cachedAccounts = cacheService.getCachedAccounts();
-        accounts = cachedAccounts.map((acc: AccountSummary) => ({
-          _id: acc.id ?? '',
-          name: acc.name,
-          formatted_account: acc.accountNumber,
-          type: acc.type,
-          connection: { name: acc.institution },
-          balance: { current: acc.balance, available: acc.availableBalance },
-        })) as unknown as Account[];
-        fromCache = true;
-      } else {
-        accounts = await apiService.listAccounts();
-        if (cacheEnabled) {
-          cacheService.setAccountCache(accounts);
-        }
-      }
-
-      // Fetch transactions
-      if (cacheEnabled && !flags.refresh && cacheService.isTransactionCacheValid(sinceDate, untilDate)) {
-        transactions = cacheService.getCachedTransactions(sinceDate, untilDate);
-        fromCache = true;
-      } else {
-        transactions = await apiService.listAllTransactions(sinceDate, untilDate);
-        if (cacheEnabled) {
-          cacheService.setTransactionCache(transactions);
-        }
-      }
+      // Fetch transactions with caching
+      const txResult = await cacheService.getTransactionsWithCache(
+        sinceDate,
+        untilDate,
+        flags.refresh,
+        cacheEnabled,
+        () => apiService.listAllTransactions(sinceDate, untilDate)
+      );
+      const transactions = txResult.transactions;
+      const fromCache = accResult.fromCache || txResult.fromCache;
 
       // Format transactions for analysis
       const formattedTransactions = transactionProcessingService.formatTransactions(transactions, accounts);
@@ -126,7 +95,7 @@ export default class Overview extends Command {
       const spending = formattedTransactions
         .filter((tx: FormattedTransaction) =>
           tx.amount < 0 &&
-          !EXCLUDED_TRANSACTION_TYPES.includes(tx.type as any)
+          !isExcludedTransactionType(tx.type)
         )
         .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
 
@@ -134,7 +103,7 @@ export default class Overview extends Command {
       const income = formattedTransactions
         .filter((tx: FormattedTransaction) =>
           tx.amount > 0 &&
-          !EXCLUDED_TRANSACTION_TYPES.includes(tx.type as any)
+          !isExcludedTransactionType(tx.type)
         )
         .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
 
@@ -146,7 +115,7 @@ export default class Overview extends Command {
       const categorySpending = formattedTransactions
         .filter((tx: FormattedTransaction) =>
           tx.amount < 0 &&
-          !EXCLUDED_TRANSACTION_TYPES.includes(tx.type as any) &&
+          !isExcludedTransactionType(tx.type) &&
           tx.parentCategory
         )
         .reduce((acc: Record<string, number>, tx: FormattedTransaction) => {
@@ -166,63 +135,66 @@ export default class Overview extends Command {
       // DISPLAY OUTPUT
       // ═══════════════════════════════════════════════════════════════
 
-      console.log('');
-      console.log(chalk.bold('  FINANCIAL OVERVIEW'));
-      console.log(chalk.dim('  ─────────────────────────────────────────────'));
+      this.log('');
+      this.log(chalk.bold('  FINANCIAL OVERVIEW'));
+      this.log(chalk.dim('  ─────────────────────────────────────────────'));
 
-      if (fromCache) {
-        console.log(chalk.dim('  (using cached data)'));
+      if (fromCache && !flags.quiet) {
+        this.log(chalk.dim('  (using cached data)'));
       }
-      console.log('');
+      this.log('');
 
       // Net Worth Section
-      console.log(chalk.bold('  NET WORTH'));
-      console.log(`  ${this.formatCurrency(totalBalance)} ${chalk.dim(`across ${accountCount} accounts`)}`);
-      console.log('');
+      this.log(chalk.bold('  NET WORTH'));
+      this.log(`  ${this.colorCurrency(totalBalance)} ${chalk.dim(`across ${accountCount} accounts`)}`);
+      this.log('');
 
       // Account breakdown by type
       for (const [type, accs] of Object.entries(accountsByType)) {
         const typeTotal = accs.reduce((sum, acc) => sum + (acc.balance?.current ?? 0), 0);
-        console.log(chalk.dim(`  ${type.toUpperCase()}`));
+        this.log(chalk.dim(`  ${type.toUpperCase()}`));
         for (const acc of accs.sort((a, b) => (b.balance?.current ?? 0) - (a.balance?.current ?? 0))) {
           const balance = acc.balance?.current ?? 0;
-          const balanceStr = this.formatCurrencyPlain(balance);
+          const balanceStr = formatCurrency(balance);
           const padding = ' '.repeat(Math.max(1, 30 - acc.name.length));
-          console.log(`    ${acc.name}${padding}${balance >= 0 ? chalk.green(balanceStr) : chalk.red(balanceStr)}`);
+          this.log(`    ${acc.name}${padding}${balance >= 0 ? chalk.green(balanceStr) : chalk.red(balanceStr)}`);
         }
-        console.log(chalk.dim(`    ${'─'.repeat(38)}`));
-        console.log(`    ${chalk.bold('Subtotal')}${' '.repeat(22)}${this.formatCurrency(typeTotal)}`);
-        console.log('');
+        this.log(chalk.dim(`    ${'─'.repeat(38)}`));
+        this.log(`    ${chalk.bold('Subtotal')}${' '.repeat(22)}${this.colorCurrency(typeTotal)}`);
+        this.log('');
       }
 
       // This Period Section
-      console.log(chalk.dim('  ─────────────────────────────────────────────'));
-      console.log(chalk.bold(`  THIS PERIOD`) + chalk.dim(` (last ${flags.days} days)`));
-      console.log('');
-      console.log(`  Income:    ${this.formatCurrency(income)}`);
-      console.log(`  Spending:  ${this.formatCurrency(spending)}`);
-      console.log(`  Net:       ${this.formatCurrency(income + spending)}`);
-      console.log('');
+      this.log(chalk.dim('  ─────────────────────────────────────────────'));
+      // Calculate days in range for display
+      const daysInRange = Math.ceil((endParsed.getTime() - startParsed.getTime()) / (1000 * 60 * 60 * 24));
+      const periodLabel = daysInRange === 1 ? '1 day' : `${daysInRange} days`;
+      this.log(chalk.bold(`  THIS PERIOD`) + chalk.dim(` (${sinceDate} to ${untilDate}, ${periodLabel})`));
+      this.log('');
+      this.log(`  Income:    ${this.colorCurrency(income)}`);
+      this.log(`  Spending:  ${this.colorCurrency(spending)}`);
+      this.log(`  Net:       ${this.colorCurrency(income + spending)}`);
+      this.log('');
 
       // Top Spending Categories
       if (topCategories.length > 0) {
-        console.log(chalk.bold('  TOP SPENDING'));
+        this.log(chalk.bold('  TOP SPENDING'));
         const maxSpend = topCategories[0]?.[1] ?? 0;
         for (const [category, amount] of topCategories) {
           const barLength = Math.round((amount / maxSpend) * 20);
           const bar = chalk.red('█'.repeat(barLength)) + chalk.dim('░'.repeat(20 - barLength));
           const amountStr = `$${amount.toFixed(0)}`.padStart(8);
-          console.log(`  ${bar} ${amountStr}  ${category}`);
+          this.log(`  ${bar} ${amountStr}  ${category}`);
         }
-        console.log('');
+        this.log('');
       }
 
       // Pending Transactions
       if (pendingTransactions.length > 0) {
-        console.log(chalk.dim('  ─────────────────────────────────────────────'));
-        console.log(chalk.bold('  PENDING'));
-        console.log(`  ${pendingTransactions.length} transactions (${this.formatCurrencyPlain(pendingTotal)})`);
-        console.log('');
+        this.log(chalk.dim('  ─────────────────────────────────────────────'));
+        this.log(chalk.bold('  PENDING'));
+        this.log(`  ${pendingTransactions.length} transactions (${formatCurrency(pendingTotal)})`);
+        this.log('');
       }
 
       // Recent Activity (last 5 transactions)
@@ -231,36 +203,36 @@ export default class Overview extends Command {
         .slice(0, 5);
 
       if (recentTransactions.length > 0) {
-        console.log(chalk.dim('  ─────────────────────────────────────────────'));
-        console.log(chalk.bold('  RECENT ACTIVITY'));
+        this.log(chalk.dim('  ─────────────────────────────────────────────'));
+        this.log(chalk.bold('  RECENT ACTIVITY'));
         for (const tx of recentTransactions) {
-          const timeAgo = this.getRelativeTime(tx.date);
+          const timeAgo = formatRelativeTime(tx.date);
           const desc = tx.merchant || tx.description;
           const truncatedDesc = desc.length > 25 ? desc.substring(0, 22) + '...' : desc;
           const padding = ' '.repeat(Math.max(1, 26 - truncatedDesc.length));
-          const amountStr = this.formatCurrencyPlain(tx.amount);
-          console.log(`  ${chalk.dim(timeAgo.padEnd(12))}${truncatedDesc}${padding}${tx.amount >= 0 ? chalk.green(amountStr) : chalk.red(amountStr)}`);
+          const amountStr = formatCurrency(tx.amount);
+          this.log(`  ${chalk.dim(timeAgo.padEnd(12))}${truncatedDesc}${padding}${tx.amount >= 0 ? chalk.green(amountStr) : chalk.red(amountStr)}`);
         }
-        console.log('');
+        this.log('');
       }
 
-      // Cache Status
-      if (cacheEnabled) {
-        console.log(chalk.dim('  ─────────────────────────────────────────────'));
-        console.log(chalk.dim('  CACHE STATUS'));
+      // Cache Status (only show when not in quiet mode)
+      if (cacheEnabled && !flags.quiet) {
+        this.log(chalk.dim('  ─────────────────────────────────────────────'));
+        this.log(chalk.dim('  CACHE STATUS'));
         const txLastUpdate = cacheInfo.transactions.lastUpdate
-          ? this.getRelativeTime(new Date(cacheInfo.transactions.lastUpdate))
+          ? formatRelativeTime(new Date(cacheInfo.transactions.lastUpdate))
           : 'never';
         const accLastUpdate = cacheInfo.accounts.lastUpdate
-          ? this.getRelativeTime(new Date(cacheInfo.accounts.lastUpdate))
+          ? formatRelativeTime(new Date(cacheInfo.accounts.lastUpdate))
           : 'never';
-        console.log(chalk.dim(`  Transactions: ${cacheInfo.transactions.count} cached (updated ${txLastUpdate})`));
-        console.log(chalk.dim(`  Accounts: ${cacheInfo.accounts.count} cached (updated ${accLastUpdate})`));
-        console.log('');
+        this.log(chalk.dim(`  Transactions: ${cacheInfo.transactions.count} cached (updated ${txLastUpdate})`));
+        this.log(chalk.dim(`  Accounts: ${cacheInfo.accounts.count} cached (updated ${accLastUpdate})`));
+        this.log('');
       }
 
-    } catch (error: any) {
-      this.error(`Error fetching data: ${error.message}`);
+    } catch (error) {
+      this.error(`Error fetching data: ${getErrorMessage(error)}`);
     }
   }
 }

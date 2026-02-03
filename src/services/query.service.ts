@@ -8,6 +8,45 @@ import {
 } from '../constants/index.js';
 import { SavedQuery, SavedQueryMap, TransactionFilter } from '../types/index.js';
 
+/** Maximum allowed length for query names */
+const MAX_QUERY_NAME_LENGTH = 64;
+
+/** Pattern for valid query names: alphanumeric, hyphens, underscores */
+const VALID_QUERY_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
+export interface QueryNameValidationResult {
+  valid: boolean;
+  error?: string;
+}
+
+/**
+ * Validate a query name.
+ * Valid names are 1-64 characters, alphanumeric with hyphens and underscores.
+ */
+export function validateQueryName(name: string): QueryNameValidationResult {
+  if (!name || name.trim() === '') {
+    return { valid: false, error: 'Query name cannot be empty' };
+  }
+
+  const trimmed = name.trim();
+
+  if (trimmed.length > MAX_QUERY_NAME_LENGTH) {
+    return {
+      valid: false,
+      error: `Query name exceeds maximum length of ${MAX_QUERY_NAME_LENGTH} characters`,
+    };
+  }
+
+  if (!VALID_QUERY_NAME_PATTERN.test(trimmed)) {
+    return {
+      valid: false,
+      error: 'Query name can only contain letters, numbers, hyphens, and underscores',
+    };
+  }
+
+  return { valid: true };
+}
+
 /**
  * Service for managing saved transaction queries
  */
@@ -54,9 +93,15 @@ class QueryService {
   }
 
   /**
-   * Save a new query
+   * Save a new query.
+   * Throws an error if the name is invalid.
    */
   save(name: string, filters: TransactionFilter, description?: string): SavedQuery {
+    const validation = validateQueryName(name);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
     const queries = this.loadQueries();
 
     const query: SavedQuery = {
@@ -126,9 +171,16 @@ class QueryService {
   }
 
   /**
-   * Rename a query
+   * Rename a query.
+   * Throws an error if the new name is invalid.
+   * Returns false if old query doesn't exist or new name already taken.
    */
   rename(oldName: string, newName: string): boolean {
+    const validation = validateQueryName(newName);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
     const queries = this.loadQueries();
 
     if (!queries[oldName] || queries[newName]) {

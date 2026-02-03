@@ -1,18 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Args, Command, Flags } from '@oclif/core';
 import { EnrichedTransaction } from 'akahu';
 import inquirer from 'inquirer';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { apiService } from '../services/api.service.js';
 import { merchantMappingService } from '../services/merchant-mapping.service.js';
+import { parseDate, validateDateRange, formatDateISO, daysAgo } from '../utils/date.js';
+import { getErrorMessage } from '../utils/error.js';
+import { warnIfConfigCorrupted } from '../utils/flags.js';
+import { DEFAULT_CATEGORIZATION_DAYS_BACK } from '../constants/index.js';
+import { NZFCCCategory, MerchantMap } from '../types/index.js';
 
-// Load NZFCC categories data once
-const nzfccPath = path.resolve('nzfcc_categories.json');
-let nzfcc: any[] = [];
+// Load NZFCC categories data once, resolving path relative to project root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..', '..');
+const nzfccPath = path.join(projectRoot, 'nzfcc_categories.json');
+let nzfcc: NZFCCCategory[] = [];
 if (fs.existsSync(nzfccPath)) {
-  nzfcc = JSON.parse(fs.readFileSync(nzfccPath, 'utf8'));
+  try {
+    nzfcc = JSON.parse(fs.readFileSync(nzfccPath, 'utf8')) as NZFCCCategory[];
+  } catch {
+    // Invalid JSON in categories file - continue without suggestions
+  }
 }
 
 function normalise(str: string): string {
@@ -46,20 +58,39 @@ export default class Categorise extends Command {
     merchant: Args.string({ required: false, description: 'Force categorise only transactions whose merchant includes this string' }),
   } as const;
 
+  private parseDateFlag(dateStr: string, flagName: string): Date {
+    const result = parseDate(dateStr, flagName);
+    if (!result.success) {
+      this.error(result.error);
+    }
+    return result.date;
+  }
+
   async run(): Promise<void> {
     const { flags, args } = await this.parse(Categorise);
 
-    const since = flags.since ?? new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const until = flags.until ?? new Date().toISOString().split('T')[0];
+    warnIfConfigCorrupted(this);
+
+    // Validate and parse dates
+    const sinceParsed = flags.since ? this.parseDateFlag(flags.since, 'since') : daysAgo(DEFAULT_CATEGORIZATION_DAYS_BACK);
+    const untilParsed = flags.until ? this.parseDateFlag(flags.until, 'until') : new Date();
+
+    // Validate date range ordering
+    const rangeResult = validateDateRange(sinceParsed, untilParsed);
+    if (!rangeResult.success) {
+      this.error(rangeResult.error);
+    }
+
+    const since = formatDateISO(sinceParsed);
+    const until = formatDateISO(untilParsed);
 
     this.log(`Scanning transactions ${since} → ${until} …`);
 
     let txs: EnrichedTransaction[];
     try {
       txs = await apiService.listAllTransactions(since, until);
-    } catch (error: any) {
-      this.error(`Error fetching transactions: ${error.message}`);
-      return;
+    } catch (error) {
+      this.error(`Error fetching transactions: ${getErrorMessage(error)}`);
     }
 
     const map = merchantMappingService.loadMerchantMap();
@@ -73,7 +104,7 @@ export default class Categorise extends Command {
     }
 
     if (!uncategorised.length) {
-      this.log('No uncategorised transactions found! 🎉');
+      this.log('No uncategorised transactions found.');
       return;
     }
 
@@ -87,7 +118,7 @@ export default class Categorise extends Command {
     this.log('All done. Future runs will auto-categorise these merchants.');
   }
 
-  private async processTx(tx: EnrichedTransaction, map: Record<string, any>) {
+  private async processTx(tx: EnrichedTransaction, map: MerchantMap): Promise<void> {
     const merchantKey = normalise(tx.merchant?.name ?? tx.description);
     if (map[merchantKey]) {
       // Already mapped; nothing to do.
@@ -131,8 +162,12 @@ export default class Categorise extends Command {
     }
 
     if (selected) {
-      merchantMappingService.upsertMerchantCategory(merchantKey, selected);
-      this.log(`Mapped '${tx.merchant?.name ?? merchantKey}' → ${selected.parent}/${selected.category}`);
+      const saved = merchantMappingService.upsertMerchantCategory(merchantKey, selected);
+      if (saved) {
+        this.log(`Mapped '${tx.merchant?.name ?? merchantKey}' → ${selected.parent}/${selected.category}`);
+      } else {
+        this.warn(`Failed to save mapping for '${tx.merchant?.name ?? merchantKey}'. Check file permissions for ~/.bankcli/`);
+      }
     } else {
       this.log('Skipped.');
     }
@@ -145,7 +180,7 @@ export default class Categorise extends Command {
 
     const words = merchantKey.split(' ').filter(Boolean);
     for (const cat of nzfcc) {
-      const name = (cat.name as string).toLowerCase();
+      const name = cat.name.toLowerCase();
       let score = 0;
       for (const w of words) {
         if (name.includes(w)) score += 1;

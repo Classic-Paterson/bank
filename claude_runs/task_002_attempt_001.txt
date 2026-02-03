@@ -1,0 +1,23 @@
+All tests pass and the build is successful.
+
+## Summary
+
+I added a `--total` flag to the `accounts` command that outputs only the total balance of matching accounts. This improvement:
+
+**What it does:**
+- `bank accounts --total` outputs just the total balance (e.g., `12345.67`)
+- Combines with other filters: `bank accounts --type savings --total` gives total savings balance
+- Outputs `0.00` when no accounts match criteria
+- Uses consistent 2-decimal-place formatting (NZD)
+
+**Why it's useful:**
+- Enables scripting workflows (e.g., `SAVINGS=$(bank accounts --type savings --total)`)
+- Provides parity with the `transactions` command which already had `--count` and `--total` flags
+- Makes "What's my net worth?" a one-liner
+- Clean output for piping into other tools
+
+**Changes made:**
+- `src/commands/accounts.ts`: Added `--total` flag and logic
+- `test/commands/accounts.test.ts`: Added 2 tests for the new flag
+
+SUCCESS

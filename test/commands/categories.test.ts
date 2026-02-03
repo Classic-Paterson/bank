@@ -12,9 +12,19 @@ describe('categories', () => {
     }
   })
 
-  it('handles months flag', async () => {
+  it('handles days flag', async () => {
     try {
-      const {stdout} = await runCommand('categories --months 3')
+      const {stdout} = await runCommand('categories --days 90')
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
+
+  it('handles since/until flags', async () => {
+    try {
+      const {stdout} = await runCommand('categories --since 2024-01-01 --until 2024-03-31')
       expect(stdout).to.be.a('string')
     } catch (error) {
       // Expected to fail without proper API configuration
@@ -29,6 +39,22 @@ describe('categories', () => {
     } catch (error) {
       // Expected to fail without proper API configuration
       expect(error).to.exist
+    }
+  })
+
+  it('rejects invalid date format', async () => {
+    const {error} = await runCommand('categories --since invalid-date')
+    expect(error).to.exist
+    if (error) {
+      expect(error.message).to.include('Invalid date format')
+    }
+  })
+
+  it('rejects invalid date range', async () => {
+    const {error} = await runCommand('categories --since 2024-06-01 --until 2024-01-01')
+    expect(error).to.exist
+    if (error) {
+      expect(error.message).to.include('Invalid date range')
     }
   })
 })

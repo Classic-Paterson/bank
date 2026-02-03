@@ -9,11 +9,15 @@ import {
 import { MerchantCategory, MerchantMap } from '../types/index.js';
 
 /**
- * Service for managing merchant categorization mappings
+ * Service for managing merchant categorization mappings.
+ * Uses in-memory caching to reduce file I/O during batch operations
+ * (e.g., processing many transactions in the categorise command).
  */
 class MerchantMappingService {
   private configDir: string;
   private mapFile: string;
+  /** In-memory cache of the merchant map, loaded on first access */
+  private cache: MerchantMap | null = null;
 
   constructor() {
     this.configDir = path.join(homedir(), CONFIG_DIR_NAME);
@@ -27,22 +31,33 @@ class MerchantMappingService {
     }
   }
 
+  /**
+   * Load the merchant map, using in-memory cache if available.
+   * Call invalidateCache() if you need to force a reload from disk.
+   */
   loadMerchantMap(): MerchantMap {
+    if (this.cache !== null) {
+      return this.cache;
+    }
+
     this.ensureDirectory();
     if (!fs.existsSync(this.mapFile)) {
-      return {};
+      this.cache = {};
+      return this.cache;
     }
 
     try {
       const data = fs.readFileSync(this.mapFile, 'utf8');
-      return JSON.parse(data) as MerchantMap;
-    } catch (error) {
-      console.warn('Warning: Could not parse merchant map file. Starting fresh.');
-      return {};
+      this.cache = JSON.parse(data) as MerchantMap;
+      return this.cache;
+    } catch {
+      // File corrupted or unreadable - start fresh silently
+      this.cache = {};
+      return this.cache;
     }
   }
 
-  saveMerchantMap(map: MerchantMap): void {
+  saveMerchantMap(map: MerchantMap): boolean {
     this.ensureDirectory();
     try {
       fs.writeFileSync(
@@ -50,15 +65,19 @@ class MerchantMappingService {
         JSON.stringify(map, null, 2),
         { mode: SECURE_FILE_MODE }
       );
-    } catch (error) {
-      console.warn(`Warning: Could not save merchant map: ${error}`);
+      // Update cache on successful write
+      this.cache = map;
+      return true;
+    } catch {
+      // Write failed - caller can check return value if needed
+      return false;
     }
   }
 
-  upsertMerchantCategory(key: string, category: MerchantCategory): void {
+  upsertMerchantCategory(key: string, category: MerchantCategory): boolean {
     const map = this.loadMerchantMap();
     map[key] = category;
-    this.saveMerchantMap(map);
+    return this.saveMerchantMap(map);
   }
 
   getMerchantCategory(key: string): MerchantCategory | undefined {
@@ -78,20 +97,15 @@ class MerchantMappingService {
   clearAllMappings(): void {
     this.saveMerchantMap({});
   }
+
+  /**
+   * Invalidate the in-memory cache, forcing the next read to load from disk.
+   * Useful if external processes may have modified the file.
+   */
+  invalidateCache(): void {
+    this.cache = null;
+  }
 }
 
 // Export singleton instance
 export const merchantMappingService = new MerchantMappingService();
-
-// Legacy compatibility functions
-export function loadMerchantMap() {
-  return merchantMappingService.loadMerchantMap();
-}
-
-export function saveMerchantMap(map: MerchantMap) {
-  return merchantMappingService.saveMerchantMap(map);
-}
-
-export function upsertMerchantCategory(key: string, category: MerchantCategory) {
-  return merchantMappingService.upsertMerchantCategory(key, category);
-}

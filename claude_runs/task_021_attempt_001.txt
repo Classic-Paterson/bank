@@ -1,30 +1,35 @@
-The changes look good. Here's a summary of what was improved:
+The implementation is complete. Here's a summary of the changes:
 
 ## Summary of Changes
 
-**Improvement**: Added `--since` and `--until` date flags to the `overview` command for CLI consistency.
+**Feature Added: `--names` flag for the `accounts` command**
 
-### Problem
-The `overview` command only supported `--days` for date filtering, while other commands (`transactions`, `categories`, `query`) supported the full `--since/--until/--days` pattern via the shared `dateFilterFlags()` utility. This inconsistency made the CLI harder to use.
+This improvement adds a new `--names` flag to the `accounts` command that outputs account names only (one per line), making it useful for:
+- Scripting and automation
+- Piping to other tools (e.g., `bank accounts --names | fzf`)
+- Shell autocompletion
+- Quick account listing without balance details
 
-### Solution
-1. **`src/commands/overview.ts`**:
-   - Replaced standalone `--days` flag with `dateFilterFlags(DEFAULT_OVERVIEW_DAYS_BACK)` spread
-   - Updated to use `parseDateRange()` for consistent date validation
-   - Improved period label to show actual date range (e.g., `(2024-01-01 to 2024-01-31, 31 days)`) instead of just `(last N days)`
-   - Added example showing `--since/--until` usage
-   - Removed unused `Flags` import from `@oclif/core`
-   - Removed unused `formatDateISO` and `daysAgo` imports (now handled by `parseDateRange`)
+**Changes Made:**
 
-2. **`test/commands/overview.test.ts`**:
-   - Added test for `--since/--until` flags
-   - Added test for invalid date format rejection
-   - Added test for invalid date range rejection
+1. **`src/commands/accounts.ts`:**
+   - Added `--names` flag definition (lines 46-49)
+   - Added example usage in command help (line 26)
+   - Added validation to prevent using `--total` and `--names` together (lines 57-60)
+   - Added logic to output account names when `--names` is used (lines 178-188)
+   - Updated empty results handling for `--names` flag (lines 149-152)
 
-### Results
-- Build passes
-- Lint passes
-- 183 tests pass (3 new tests added)
-- CLI flag interface is now consistent across date-filtering commands
+2. **`test/commands/accounts.test.ts`:**
+   - Added 3 new tests:
+     - `handles --names flag`
+     - `handles --names with type filter`
+     - `rejects --total and --names together`
+
+**Design Considerations:**
+- Follows the existing pattern from `--merchants` flag on the transactions command
+- Supports filtering with `--type` to get names of specific account types
+- Shows a count summary unless `--quiet` is used
+- Outputs empty/nothing when no accounts match (not an error)
+- Mutually exclusive with `--total` since they serve different purposes
 
 SUCCESS

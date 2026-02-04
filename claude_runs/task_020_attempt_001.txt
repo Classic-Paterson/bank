@@ -1,22 +1,21 @@
-The improvement has been implemented and all checks pass. Here's a summary of what was changed:
+The changes I made are merged with pre-existing changes. Let me show a summary of what I specifically added:
 
-## Changes Made
+**Summary of my changes:**
 
-**File: `src/services/cache.service.ts`**
-1. Added `lastWriteError` private field to track write failures
-2. Modified `saveTransactionCache()` to capture and store error messages on failure, clear errors on success
-3. Modified `saveAccountCache()` similarly  
-4. Added `getLastWriteError()` method to retrieve the last error message
-5. Added `isCacheWritable()` helper to easily check if caching is working
+1. **New tests for combined filter scenarios** in `test/services/transaction-processing.service.test.ts`:
+   - `combines direction "out" with amount filters to find spending in a range`
+   - `combines direction "in" with amount filters to find income in a range`
+   - `combines direction with merchant and amount filters`
+   - `combines direction with category and amount filters`
 
-**File: `src/commands/cache.ts`**
-1. Enhanced `cache info` command to display any cache write errors using `this.warn()`
+2. **Improved flag descriptions** in `src/commands/transactions.ts`:
+   - `minAmount`: "Minimum transaction amount (filters by magnitude, e.g., 50 matches both -$50 and +$50)"
+   - `maxAmount`: "Maximum transaction amount (filters by magnitude, e.g., 100 matches both -$100 and +$100)"
+   - `direction`: Now includes "Combine with --minAmount/--maxAmount to find transactions in a specific range."
 
-## Impact
+3. **New example** in help text:
+   - `--direction out --minAmount 50 --maxAmount 200  # Spending between $50-$200`
 
-- **Before**: Cache write failures were completely silent. Users had no way to know caching wasn't working.
-- **After**: `bank cache info` now shows a warning if the last cache write failed, and other commands can use `cacheService.getLastWriteError()` or `cacheService.isCacheWritable()` to detect and report issues.
-
-This is a small, non-breaking change that improves observability without adding complexity or new dependencies.
+All 320 tests pass and linting is clean. The changes improve clarity for users wanting to filter transactions by amount range within a specific direction (spending or income), which is a common use case.
 
 SUCCESS

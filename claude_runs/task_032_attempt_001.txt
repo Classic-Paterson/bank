@@ -1,0 +1,18 @@
+All tests pass and lint is clean.
+
+**Summary of changes made:**
+
+1. **Added `endofthisyear` date shortcut** in `src/utils/date.ts` - Returns December 31st of the current year
+2. **Added `endoflastyear` date shortcut** in `src/utils/date.ts` - Returns December 31st of the previous year  
+3. **Updated documentation** in the `tryParseDateShortcut` and `parseDate` function docstrings
+4. **Updated the `--until` flag description** in `src/utils/flags.ts` to mention the new shortcuts
+5. **Added 4 new tests** in `test/utils/date.test.ts` for the new shortcuts (including case-insensitivity tests)
+
+**Why this is a high-impact improvement:**
+- Completes the date shortcut vocabulary - users can now do `--since lastyear --until endoflastyear` for annual reports
+- Follows the established pattern for week/month/quarter shortcuts
+- Enables common use cases like year-end financial summaries
+- Zero breaking changes - purely additive
+- Small, focused change that earns its complexity
+
+SUCCESS

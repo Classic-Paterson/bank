@@ -1,24 +1,16 @@
 import { Args, Command, Flags } from '@oclif/core';
 import inquirer from 'inquirer';
+import * as fs from 'fs';
 
 import { configService } from '../services/config.service.js';
+import { merchantMappingService } from '../services/merchant-mapping.service.js';
 import { getErrorMessage } from '../utils/error.js';
-import { SettingDefinition } from '../types/index.js';
-import { OUTPUT_FORMATS, MASK_MIN_LENGTH_FOR_PARTIAL } from '../constants/index.js';
+import { maskSensitiveValue } from '../utils/mask.js';
+import { SettingDefinition, MerchantMap } from '../types/index.js';
+import { OUTPUT_FORMATS } from '../constants/index.js';
 
 // Sensitive settings that should be masked when displayed
 const SENSITIVE_SETTINGS = new Set(['appToken', 'userToken']);
-
-/**
- * Masks a sensitive value, showing only first/last 4 chars for longer values.
- * Short values (< MASK_MIN_LENGTH_FOR_PARTIAL) are fully masked for security.
- */
-function maskSensitiveValue(value: string): string {
-  if (value.length < MASK_MIN_LENGTH_FOR_PARTIAL) {
-    return '*'.repeat(value.length);
-  }
-  return `${value.substring(0, 4)}${'*'.repeat(value.length - 8)}${value.substring(value.length - 4)}`;
-}
 
 // Define the valid settings that can be configured
 const VALID_SETTINGS: Record<string, SettingDefinition> = {
@@ -57,27 +49,27 @@ const VALID_SETTINGS: Record<string, SettingDefinition> = {
 
 export default class Settings extends Command {
   static override args = {
-    action: Args.string({ 
-      required: true, 
-      description: 'Action to perform (set, get, list, reset)',
-      options: ['set', 'get', 'list', 'reset']
+    action: Args.string({
+      required: true,
+      description: 'Action to perform (set, get, list, reset, help, export-merchants, import-merchants)',
+      options: ['set', 'get', 'list', 'reset', 'help', 'export-merchants', 'import-merchants']
     }),
-    key: Args.string({ 
-      required: false, 
-      description: 'Setting key',
-      options: Object.keys(VALID_SETTINGS)
+    key: Args.string({
+      required: false,
+      description: 'Setting key or file path for import/export',
     }),
     value: Args.string({ required: false, description: 'Value to set' }),
   };
 
   static flags = {
-    help: Flags.boolean({
-      char: 'h',
-      description: 'Show available settings',
-    }),
     yes: Flags.boolean({
       char: 'y',
-      description: 'Skip confirmation prompt for reset',
+      description: 'Skip confirmation prompt for reset/import',
+      default: false,
+    }),
+    merge: Flags.boolean({
+      char: 'm',
+      description: 'Merge imported merchants with existing (default replaces all)',
       default: false,
     }),
   };
@@ -94,17 +86,16 @@ export default class Settings extends Command {
     '$ bank settings get appToken',
     '$ bank settings reset format',
     '$ bank settings reset format -y  # Skip confirmation prompt',
-    '$ bank settings --help',
+    '$ bank settings help              # Show available settings and their types',
+    '$ bank settings export-merchants                    # Export to stdout (pipe to file)',
+    '$ bank settings export-merchants merchants.json     # Export to file',
+    '$ bank settings import-merchants merchants.json     # Import from file (replaces existing)',
+    '$ bank settings import-merchants merchants.json -m  # Merge with existing mappings',
+    '$ bank settings import-merchants merchants.json -y  # Skip confirmation prompt',
   ];
 
   async run() {
     const { args, flags } = await this.parse(Settings);
-
-    // Show settings help if requested
-    if (flags.help) {
-      this.showSettingsHelp();
-      return;
-    }
 
     const action = args.action.toLowerCase();
     const key = args.key;
@@ -218,8 +209,20 @@ export default class Settings extends Command {
           }
           break;
 
+        case 'help':
+          this.showSettingsHelp();
+          break;
+
+        case 'export-merchants':
+          this.exportMerchants(key); // key is used as optional file path
+          break;
+
+        case 'import-merchants':
+          await this.importMerchants(key, flags.yes, flags.merge);
+          break;
+
         default:
-          this.error(`Unknown action '${action}'. Available actions are: set, get, list, reset.`);
+          this.error(`Unknown action '${action}'. Available actions are: set, get, list, reset, help, export-merchants, import-merchants.`);
           break;
       }
     } catch (error) {
@@ -288,5 +291,135 @@ export default class Settings extends Command {
     }
 
     return value;
+  }
+
+  /**
+   * Export merchant mappings to stdout or a file.
+   * Output format is JSON, suitable for piping or saving.
+   */
+  private exportMerchants(filePath?: string): void {
+    const mappings = merchantMappingService.getAllMappings();
+    const count = Object.keys(mappings).length;
+
+    if (count === 0) {
+      this.warn('No merchant mappings to export. Use "bank categorise" to create mappings.');
+      return;
+    }
+
+    const json = JSON.stringify(mappings, null, 2);
+
+    if (filePath) {
+      // Write to file
+      fs.writeFileSync(filePath, json);
+      this.log(`Exported ${count} merchant mapping${count === 1 ? '' : 's'} to ${filePath}`);
+    } else {
+      // Output to stdout (for piping)
+      console.log(json);
+    }
+  }
+
+  /**
+   * Import merchant mappings from a JSON file.
+   * Can either replace all existing mappings or merge with them.
+   */
+  private async importMerchants(filePath: string | undefined, skipConfirm: boolean, merge: boolean): Promise<void> {
+    if (!filePath) {
+      this.error('Please provide a file path for import.\nUsage: bank settings import-merchants <file.json>');
+    }
+
+    // Check file exists
+    if (!fs.existsSync(filePath)) {
+      this.error(`File not found: ${filePath}`);
+    }
+
+    // Read and parse file
+    let importData: MerchantMap;
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      importData = JSON.parse(content) as MerchantMap;
+    } catch (parseError) {
+      this.error(`Invalid JSON file: ${getErrorMessage(parseError)}`);
+    }
+
+    // Validate structure
+    const validationError = this.validateMerchantMapStructure(importData);
+    if (validationError) {
+      this.error(validationError);
+    }
+
+    const importCount = Object.keys(importData).length;
+    if (importCount === 0) {
+      this.warn('The import file contains no merchant mappings.');
+      return;
+    }
+
+    const existingMappings = merchantMappingService.getAllMappings();
+    const existingCount = Object.keys(existingMappings).length;
+
+    // Confirm before importing
+    if (!skipConfirm) {
+      const message = merge
+        ? `Merge ${importCount} mapping${importCount === 1 ? '' : 's'} with ${existingCount} existing?`
+        : existingCount > 0
+          ? `Replace ${existingCount} existing mapping${existingCount === 1 ? '' : 's'} with ${importCount} from file?`
+          : `Import ${importCount} merchant mapping${importCount === 1 ? '' : 's'}?`;
+
+      const { proceed } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'proceed',
+        message,
+        default: false,
+      }]);
+
+      if (!proceed) {
+        this.log('Import cancelled.');
+        return;
+      }
+    }
+
+    // Perform import
+    let finalMappings: MerchantMap;
+    if (merge) {
+      finalMappings = { ...existingMappings, ...importData };
+    } else {
+      finalMappings = importData;
+    }
+
+    const success = merchantMappingService.saveMerchantMap(finalMappings);
+    if (!success) {
+      this.error('Failed to save merchant mappings.');
+    }
+
+    const finalCount = Object.keys(finalMappings).length;
+    if (merge) {
+      const newCount = finalCount - existingCount;
+      const updatedCount = importCount - newCount;
+      this.log(`Imported ${importCount} mapping${importCount === 1 ? '' : 's'} (${newCount} new, ${updatedCount} updated). Total: ${finalCount}`);
+    } else {
+      this.log(`Imported ${finalCount} merchant mapping${finalCount === 1 ? '' : 's'}.`);
+    }
+  }
+
+  /**
+   * Validate that imported data has the expected MerchantMap structure.
+   * Returns an error message if invalid, undefined if valid.
+   */
+  private validateMerchantMapStructure(data: unknown): string | undefined {
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      return 'Invalid format: expected a JSON object with merchant mappings.';
+    }
+
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value !== 'object' || value === null) {
+        return `Invalid mapping for "${key}": expected object with parent and category.`;
+      }
+
+      const mapping = value as Record<string, unknown>;
+      if (typeof mapping.parent !== 'string' || typeof mapping.category !== 'string') {
+        return `Invalid mapping for "${key}": must have "parent" and "category" string properties.`;
+      }
+    }
+
+    return undefined;
   }
 }

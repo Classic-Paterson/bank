@@ -1,39 +1,35 @@
-All tasks completed successfully. Here's a summary of the improvement:
+The categories command now uses the shared `formatFlag` constant and works correctly.
 
-## Summary
+Let me summarize the changes made:
 
-**Feature Added:** Natural date shortcuts for `--since` and `--until` flags
+## Summary of Changes
 
-**What Changed:**
-1. `src/utils/date.ts` - Added `tryParseDateShortcut()` function and updated `parseDate()` to support natural shortcuts
-2. `src/utils/flags.ts` - Updated flag descriptions to mention the new shortcuts
-3. `test/utils/date.test.ts` - Added 12 new tests for the date shortcut functionality
+### 1. Fixed settings.ts `-h` flag conflict
+**Issue**: The settings command defined a custom `-h` flag for showing available settings, which conflicts with oclif's reserved `-h` for help.
 
-**New Capabilities:**
-Users can now use natural date shortcuts instead of YYYY-MM-DD format:
+**Solution**: 
+- Removed the custom `-h, --help` flag
+- Added a new `help` action (`bank settings help`) that shows detailed setting information
+- Updated examples and error messages to reflect the new action
 
-```bash
-# Before (still works)
-bank transactions --since 2024-01-15
+### 2. Standardized categories.ts format flag
+**Issue**: The categories command defined its own `format` flag inline instead of using the shared `formatFlag` constant from `utils/flags.ts`.
 
-# Now also works
-bank transactions --since today
-bank transactions --since yesterday  
-bank transactions --since 7d           # 7 days ago
-bank transactions --since 30days       # 30 days ago
-bank transactions --since 2w           # 2 weeks ago
-bank transactions --since 4weeks       # 4 weeks ago
-```
+**Solution**:
+- Replaced the inline flag definition with the shared `formatFlag` constant
+- Removed unused `Flags` import and `OUTPUT_FORMATS` import
+- This ensures consistency across all commands that use format flags
 
-**User Benefits:**
-- Reduces friction for common queries
-- More intuitive CLI experience
-- No new dependencies added
-- Fully backwards compatible
+### 3. Improved merchant matching help text
+**Issue**: The transactions command displayed a confusing tip: "Merchant names are case-insensitive but must match exactly" - this is contradictory (case-insensitive implies partial matching).
 
-**Test Results:**
-- 241 tests passing (12 new)
-- Build successful
-- Lint clean
+**Solution**:
+- Updated the help text to accurately describe the behavior: "Merchant filter is case-insensitive and matches substrings (e.g., 'pak' matches 'Pak N Save')"
+- This matches the actual implementation which uses `includes()` for substring matching
+
+### 4. Added test for new settings help action
+- Added a new test case to verify the `settings help` action works correctly
+
+All tests pass (282 total), build succeeds, and linting passes.
 
 SUCCESS

@@ -1,15 +1,36 @@
-The help text is correct and the flags are properly configured. The change was successful:
+All tasks completed successfully. Here's a summary of the improvement:
 
-**Summary of changes:**
-1. Added `dateFilterFlags()` function to `src/utils/flags.ts` - a composable factory function that creates consistent `--since`, `--until`, and `--days` flags with proper short flags (`-s`, `-u`) and descriptions including the default days value
-2. Added `DateFilterFlags` type helper for TypeScript type inference
-3. Updated `transactions.ts` to use `...dateFilterFlags(DEFAULT_TRANSACTION_DAYS_BACK)` instead of defining flags individually
-4. Updated `categories.ts` to use `...dateFilterFlags(DEFAULT_CATEGORY_DAYS_BACK)` instead of defining flags individually
+## Summary
 
-**Benefits:**
-- **Reduced duplication**: ~18 lines of flag definitions replaced with 1 line per command
-- **Consistency**: All date flags now have consistent `-s` and `-u` short flags across commands
-- **Maintainability**: Changes to date flag behavior/descriptions only need to happen in one place
-- **Developer experience**: Adding date filtering to new commands is now trivial
+**Improvement:** Show cache age when displaying cached data
+
+Previously, when the CLI used cached data, it would simply show `(using cached data)`. This didn't tell users how stale the cache might be, which is important for financial data.
+
+**Changes made:**
+
+1. **Added `formatCacheAge()` utility** (`src/utils/output.ts`):
+   - Returns human-readable cache age like `(using cached data from 45m ago)` or `(using cached data from 2h ago)`
+   - Handles edge cases: null input, invalid dates
+   - Shows appropriate units: minutes, hours, or days
+
+2. **Updated CacheService** (`src/services/cache.service.ts`):
+   - Modified `getAccountsWithCache()` and `getTransactionsWithCache()` to return `cacheAge` timestamp alongside `fromCache` boolean
+
+3. **Updated all commands that use cache**:
+   - `accounts.ts` - Shows cache age in table format
+   - `transactions.ts` - Shows cache age in table format
+   - `categories.ts` - Shows cache age
+   - `overview.ts` - Shows cache age in the dashboard header
+
+4. **Added 10 unit tests** for the new `formatCacheAge()` function covering:
+   - Null input handling
+   - Just now, minutes, hours, and days formatting
+   - Edge cases at time boundaries (59m→60m, 23h→24h)
+   - Invalid date string handling
+
+**Impact:**
+- Users now see exactly how old their cached data is
+- Helps users make informed decisions about whether to use `--refresh`
+- More professional CLI UX - transparent about data freshness
 
 SUCCESS

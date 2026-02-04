@@ -84,6 +84,14 @@ export default class Cache extends Command {
       this.log('');
       this.warn(`Cache write error: ${writeError}`);
     }
+
+    // Show load error if present
+    const loadError = cacheService.getLoadErrorMessage();
+    if (loadError) {
+      this.log('');
+      this.warn(`Cache load error: ${loadError}`);
+      this.log('  Run `bank cache clear` to reset the cache.');
+    }
   }
 
   private async clearCache(accountsOnly: boolean, transactionsOnly: boolean, skipConfirmation: boolean): Promise<void> {

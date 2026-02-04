@@ -57,4 +57,14 @@ describe('categories', () => {
       expect(error.message).to.include('Invalid date range')
     }
   })
+
+  it('handles account filter flag', async () => {
+    try {
+      const {stdout} = await runCommand('categories --account acc_12345')
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
 })

@@ -1,7 +1,8 @@
 import { Account, EnrichedTransaction } from 'akahu';
 import { FormattedTransaction, TransactionFilter } from '../types/index.js';
-import { isExcludedTransactionType } from '../constants/index.js';
-import { merchantMappingService } from './merchant-mapping.service.js';
+import { isExcludedTransactionType, UNCATEGORIZED } from '../constants/index.js';
+import { merchantMappingService, normaliseMerchantName } from './merchant-mapping.service.js';
+import { formatRelativeTime } from '../utils/output.js';
 
 /**
  * Service for processing and filtering transactions
@@ -31,16 +32,17 @@ class TransactionProcessingService {
       const account = accountMap.get(transaction._account);
       const merchantName = transaction.merchant?.name ?? '';
 
-      // Check for user-defined merchant mapping first
-      const merchantMapping = merchantName ? merchantMap[merchantName] : undefined;
+      // Check for user-defined merchant mapping first (using normalized key for consistent lookups)
+      const normalizedMerchantName = merchantName ? normaliseMerchantName(merchantName) : '';
+      const merchantMapping = normalizedMerchantName ? merchantMap[normalizedMerchantName] : undefined;
 
       // Use merchant mapping if available, otherwise fall back to API categories
       const parentCategory = merchantMapping?.parent
         ?? transaction.category?.groups?.['personal_finance']?.name
-        ?? 'Uncategorized';
+        ?? UNCATEGORIZED;
       const category = merchantMapping?.category
         ?? transaction.category?.name
-        ?? 'Uncategorized';
+        ?? UNCATEGORIZED;
 
       return {
         id: transaction._id,
@@ -122,11 +124,11 @@ class TransactionProcessingService {
       );
     }
 
-    // Apply search filter (matches transaction ID or description)
+    // Apply search filter (matches transaction ID or description, case-insensitive)
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(tx =>
-        tx.id === filters.search ||
+        tx.id.toLowerCase() === searchTerm ||
         (tx.description ?? '').toLowerCase().includes(searchTerm)
       );
     }
@@ -153,7 +155,7 @@ class TransactionProcessingService {
         return acc;
       }
 
-      const category = tx.parentCategory.toLowerCase().trim() || 'Uncategorized';
+      const category = tx.parentCategory.toLowerCase().trim() || UNCATEGORIZED;
       acc[category] = (acc[category] || 0) + Math.abs(tx.amount);
       
       return acc;
@@ -206,7 +208,7 @@ class TransactionProcessingService {
     const formattedTransactions = transactions.map(tx => ({
       ...tx,
       date: useRelativeTime
-        ? this.formatRelativeTime(tx.date)
+        ? formatRelativeTime(tx.date, { compact: true })
         : tx.date.toLocaleDateString(),
     }));
 
@@ -222,28 +224,6 @@ class TransactionProcessingService {
     }
 
     return formattedTransactions;
-  }
-
-  /**
-   * Format a date as relative time (e.g., "2d ago", "yesterday").
-   * Compact format for table display.
-   */
-  private formatRelativeTime(date: Date): string {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const isFuture = diffMs < 0;
-    const absDiffMs = Math.abs(diffMs);
-    const diffDays = Math.floor(absDiffMs / 86400000);
-
-    if (diffDays === 0) return 'today';
-    if (diffDays === 1) return isFuture ? 'tomorrow' : 'yesterday';
-    if (diffDays < 7) return isFuture ? `in ${diffDays}d` : `${diffDays}d ago`;
-    if (diffDays < 30) {
-      const weeks = Math.floor(diffDays / 7);
-      return isFuture ? `in ${weeks}w` : `${weeks}w ago`;
-    }
-    // Fall back to short date for older transactions
-    return date.toLocaleDateString();
   }
 }
 

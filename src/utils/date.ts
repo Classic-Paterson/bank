@@ -25,11 +25,27 @@ export type DateRangeResult =
  * - "today" - current date
  * - "yesterday" - one day ago
  * - "Nd" or "Ndays" - N days ago (e.g., "7d", "30days")
+ * - "N days ago" - N days ago (e.g., "7 days ago", "30 days ago")
  * - "Nw" or "Nweeks" - N weeks ago (e.g., "2w", "4weeks")
+ * - "N weeks ago" - N weeks ago (e.g., "2 weeks ago", "4 weeks ago")
  * - "Nm" or "Nmonths" - N months ago (e.g., "1m", "3months")
+ * - "N months ago" - N months ago (e.g., "3 months ago", "6 months ago")
+ * - "thisweek" - first day of current week (Monday)
+ * - "lastweek" - first day of previous week (Monday)
  * - "thismonth" - first day of current month
  * - "lastmonth" - first day of previous month
  * - "endoflastmonth" - last day of previous month
+ * - "endofthismonth" - last day of current month
+ * - "endoflastweek" - last day (Sunday) of previous week
+ * - "endofthisweek" - last day (Sunday) of current week
+ * - "thisquarter" - first day of current quarter
+ * - "lastquarter" - first day of previous quarter
+ * - "endofthisquarter" - last day of current quarter
+ * - "endoflastquarter" - last day of previous quarter
+ * - "thisyear" - first day of current year
+ * - "lastyear" - first day of previous year
+ * - "endofthisyear" - last day of current year (Dec 31)
+ * - "endoflastyear" - last day of previous year (Dec 31)
  *
  * @param dateStr - The date string to try parsing
  * @returns Date if matched, null otherwise
@@ -43,6 +59,23 @@ function tryParseDateShortcut(dateStr: string): Date | null {
 
   if (normalized === 'yesterday') {
     return daysAgo(1);
+  }
+
+  // "thisweek" - first day of current week (Monday)
+  if (normalized === 'thisweek') {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    // Sunday is 0, Monday is 1, etc. We want Monday as start of week.
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToSubtract);
+  }
+
+  // "lastweek" - first day of previous week (Monday)
+  if (normalized === 'lastweek') {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToSubtract - 7);
   }
 
   // "thismonth" - first day of current month
@@ -64,11 +97,103 @@ function tryParseDateShortcut(dateStr: string): Date | null {
     return new Date(now.getFullYear(), now.getMonth(), 0);
   }
 
+  // "endofthismonth" - last day of current month (useful for --until)
+  if (normalized === 'endofthismonth') {
+    const now = new Date();
+    // Day 0 of next month = last day of current month
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
+  // "endoflastweek" - last day (Sunday) of previous week
+  if (normalized === 'endoflastweek') {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    // Sunday is 0, so last Sunday is (dayOfWeek) days ago,
+    // but we want the Sunday before that if today is Sunday
+    const daysToLastSunday = dayOfWeek === 0 ? 7 : dayOfWeek;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysToLastSunday);
+  }
+
+  // "endofthisweek" - last day (Sunday) of current week
+  if (normalized === 'endofthisweek') {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    // Sunday is 0. We want the upcoming Sunday (or today if it's Sunday)
+    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + daysToSunday);
+  }
+
+  // "thisquarter" - first day of current quarter
+  if (normalized === 'thisquarter') {
+    const now = new Date();
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    return new Date(now.getFullYear(), quarterStartMonth, 1);
+  }
+
+  // "lastquarter" - first day of previous quarter
+  if (normalized === 'lastquarter') {
+    const now = new Date();
+    const currentQuarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    const lastQuarterStartMonth = currentQuarterStartMonth - 3;
+    const year = lastQuarterStartMonth < 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const month = lastQuarterStartMonth < 0 ? lastQuarterStartMonth + 12 : lastQuarterStartMonth;
+    return new Date(year, month, 1);
+  }
+
+  // "endofthisquarter" - last day of current quarter
+  if (normalized === 'endofthisquarter') {
+    const now = new Date();
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    // Last day of quarter = day 0 of first month of next quarter
+    return new Date(now.getFullYear(), quarterStartMonth + 3, 0);
+  }
+
+  // "endoflastquarter" - last day of previous quarter
+  if (normalized === 'endoflastquarter') {
+    const now = new Date();
+    const currentQuarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    // Last day of previous quarter = day 0 of current quarter start month
+    return new Date(now.getFullYear(), currentQuarterStartMonth, 0);
+  }
+
+  // "thisyear" - first day of current year
+  if (normalized === 'thisyear') {
+    const now = new Date();
+    return new Date(now.getFullYear(), 0, 1);
+  }
+
+  // "lastyear" - first day of previous year
+  if (normalized === 'lastyear') {
+    const now = new Date();
+    return new Date(now.getFullYear() - 1, 0, 1);
+  }
+
+  // "endofthisyear" - last day of current year (Dec 31)
+  if (normalized === 'endofthisyear') {
+    const now = new Date();
+    return new Date(now.getFullYear(), 11, 31);
+  }
+
+  // "endoflastyear" - last day of previous year (Dec 31)
+  if (normalized === 'endoflastyear') {
+    const now = new Date();
+    return new Date(now.getFullYear() - 1, 11, 31);
+  }
+
   // Match "Nd" or "Ndays" pattern (e.g., "7d", "30days", "7 days")
   const daysMatch = normalized.match(/^(\d+)\s*d(?:ays?)?$/);
   if (daysMatch) {
     const days = parseInt(daysMatch[1], 10);
     if (days >= 0 && days <= 36500) { // Cap at ~100 years
+      return daysAgo(days);
+    }
+  }
+
+  // Match "N days ago" pattern (e.g., "7 days ago", "30 days ago")
+  const daysAgoMatch = normalized.match(/^(\d+)\s*days?\s+ago$/);
+  if (daysAgoMatch) {
+    const days = parseInt(daysAgoMatch[1], 10);
+    if (days >= 0 && days <= 36500) {
       return daysAgo(days);
     }
   }
@@ -82,11 +207,29 @@ function tryParseDateShortcut(dateStr: string): Date | null {
     }
   }
 
+  // Match "N weeks ago" pattern (e.g., "2 weeks ago", "4 weeks ago")
+  const weeksAgoMatch = normalized.match(/^(\d+)\s*weeks?\s+ago$/);
+  if (weeksAgoMatch) {
+    const weeks = parseInt(weeksAgoMatch[1], 10);
+    if (weeks >= 0 && weeks <= 5200) {
+      return daysAgo(weeks * 7);
+    }
+  }
+
   // Match "Nm" or "Nmonths" pattern (e.g., "1m", "3months", "6 months")
   const monthsMatch = normalized.match(/^(\d+)\s*m(?:onths?)?$/);
   if (monthsMatch) {
     const months = parseInt(monthsMatch[1], 10);
     if (months >= 0 && months <= 1200) { // Cap at 100 years
+      return monthsAgo(months);
+    }
+  }
+
+  // Match "N months ago" pattern (e.g., "3 months ago", "6 months ago")
+  const monthsAgoMatch = normalized.match(/^(\d+)\s*months?\s+ago$/);
+  if (monthsAgoMatch) {
+    const months = parseInt(monthsAgoMatch[1], 10);
+    if (months >= 0 && months <= 1200) {
       return monthsAgo(months);
     }
   }
@@ -113,8 +256,12 @@ export function monthsAgo(months: number): Date {
  *
  * Accepts:
  * - YYYY-MM-DD format (e.g., "2024-01-15")
- * - Natural shortcuts: "today", "yesterday", "7d", "30days", "2w", "4weeks",
- *   "3m", "6months", "thismonth", "lastmonth", "endoflastmonth"
+ * - Natural shortcuts: "today", "yesterday", "7d", "30days", "7 days ago",
+ *   "2w", "4weeks", "2 weeks ago", "3m", "6months", "3 months ago",
+ *   "thisweek", "lastweek", "endofthisweek", "endoflastweek",
+ *   "thismonth", "lastmonth", "endofthismonth", "endoflastmonth",
+ *   "thisquarter", "lastquarter", "endofthisquarter", "endoflastquarter",
+ *   "thisyear", "lastyear", "endofthisyear", "endoflastyear"
  *
  * Returns a result object to allow callers to handle errors appropriately.
  *
@@ -125,7 +272,9 @@ export function monthsAgo(months: number): Date {
  * @example
  * const result = parseDate('2024-01-15', 'since');
  * const result = parseDate('yesterday', 'since');
+ * const result = parseDate('7 days ago', 'since');
  * const result = parseDate('lastmonth', 'since');
+ * const result = parseDate('thisquarter', 'since');
  * if (result.success) {
  *   console.log(result.date);
  * } else {
@@ -144,7 +293,7 @@ export function parseDate(dateStr: string, fieldName: string): DateParseResult {
     return {
       success: false,
       error: `Invalid date format for --${fieldName}: "${dateStr}". ` +
-        `Expected YYYY-MM-DD or shortcuts like "today", "yesterday", "7d", "2w", "3m", "thismonth", "lastmonth".`,
+        `Expected YYYY-MM-DD or shortcuts like "today", "yesterday", "7d", "7 days ago", "2w", "2 weeks ago", "3m", "3 months ago", "thisweek", "thismonth", "thisquarter", "thisyear".`,
     };
   }
 
@@ -284,6 +433,8 @@ export interface DateRangeOptions {
   defaultDaysBack: number;
   /** If true, extend end date by one day when start and end are the same */
   extendSameDayRange?: boolean;
+  /** Optional callback to warn user (e.g., when --days overrides --since) */
+  onWarning?: (message: string) => void;
 }
 
 /**
@@ -315,7 +466,7 @@ export type DateRangeParseResult =
  * const { startDate, endDate } = result;
  */
 export function parseDateRange(options: DateRangeOptions): DateRangeParseResult {
-  const { since, until, days, defaultDaysBack, extendSameDayRange = false } = options;
+  const { since, until, days, defaultDaysBack, extendSameDayRange = false, onWarning } = options;
 
   // Validate --days is positive when provided
   if (days !== undefined && days < 1) {
@@ -340,6 +491,10 @@ export function parseDateRange(options: DateRangeOptions): DateRangeParseResult 
   // Determine start date: --days takes precedence, then --since, then default
   let startParsed: Date;
   if (days !== undefined) {
+    // Warn if --since was also provided (it will be ignored)
+    if (since && onWarning) {
+      onWarning(`Both --days and --since provided. Using --days=${days} (ignoring --since="${since}").`);
+    }
     startParsed = daysAgo(days);
   } else if (since) {
     const sinceResult = parseDate(since, 'since');

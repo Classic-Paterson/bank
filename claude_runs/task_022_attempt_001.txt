@@ -1,18 +1,31 @@
-All checks pass:
-- ✅ 220 tests passing (added 36 new tests for transaction-processing.service)
-- ✅ Lint passes
-- ✅ Build succeeds
+All checks pass. Let me provide a summary of the change:
 
-**Summary of changes:**
-Added comprehensive unit tests for `TransactionProcessingService` in `test/services/transaction-processing.service.test.ts` covering:
+## Summary
 
-1. **formatTransactions** - 6 tests for transaction formatting, handling missing fields, and O(1) account lookup
-2. **applyFilters** - 14 tests for all filter types (account, category, parent category, merchant, amount, type, search) including edge cases like comma-separated merchants and combined filters
-3. **calculateCategoryBreakdown** - 6 tests for spending analysis by category, excluding transfers/income
-4. **calculateSummary** - 3 tests for transaction summary statistics
-5. **getUncategorizedTransactions** - 3 tests for identifying uncategorized transactions
-6. **generateDisplayData** - 4 tests for display format generation
+Added `endofthisquarter` and `endoflastquarter` date shortcuts to complement the existing `thisquarter` and `lastquarter` shortcuts. This enables users to easily query complete quarters for financial reporting.
 
-This is a high-impact improvement as these tests lock in the critical business logic for filtering, formatting, and categorizing financial transactions - ensuring correctness and preventing regressions.
+**Changes made:**
+1. **`src/utils/date.ts`**: Added two new date shortcuts:
+   - `endofthisquarter` - returns the last day of the current quarter
+   - `endoflastquarter` - returns the last day of the previous quarter
+   
+2. **`test/utils/date.test.ts`**: Added 4 new tests covering the new shortcuts and case insensitivity
+
+**User benefit:**
+Users can now easily query complete quarters:
+```bash
+# Complete last quarter
+bank transactions --since lastquarter --until endoflastquarter
+
+# Complete current quarter (for reporting at quarter end)
+bank transactions --since thisquarter --until endofthisquarter
+```
+
+This follows the existing pattern (`endoflastmonth`, `endofthismonth`, `endoflastweek`, `endofthisweek`) and provides parity between month/week/quarter date shortcuts.
+
+**Test results:**
+- Build: ✅ Clean
+- Tests: ✅ 327 passing (including 4 new tests)
+- Lint: ✅ No errors
 
 SUCCESS

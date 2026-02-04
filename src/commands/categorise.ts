@@ -6,10 +6,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { apiService } from '../services/api.service.js';
-import { merchantMappingService } from '../services/merchant-mapping.service.js';
+import { merchantMappingService, normaliseMerchantName } from '../services/merchant-mapping.service.js';
 import { parseDate, validateDateRange, formatDateISO, daysAgo } from '../utils/date.js';
 import { getErrorMessage } from '../utils/error.js';
 import { warnIfConfigCorrupted } from '../utils/flags.js';
+import { formatCurrency } from '../utils/output.js';
 import { DEFAULT_CATEGORIZATION_DAYS_BACK } from '../constants/index.js';
 import { NZFCCCategory, MerchantMap } from '../types/index.js';
 
@@ -27,9 +28,7 @@ if (fs.existsSync(nzfccPath)) {
   }
 }
 
-function normalise(str: string): string {
-  return str.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-}
+// Using centralized normalization from merchant-mapping.service for consistency
 
 export default class Categorise extends Command {
   static description = 'Interactively assign categories to uncategorised transactions and store a merchant map';
@@ -119,14 +118,14 @@ export default class Categorise extends Command {
   }
 
   private async processTx(tx: EnrichedTransaction, map: MerchantMap): Promise<void> {
-    const merchantKey = normalise(tx.merchant?.name ?? tx.description);
+    const merchantKey = normaliseMerchantName(tx.merchant?.name ?? tx.description);
     if (map[merchantKey]) {
       // Already mapped; nothing to do.
       return;
     }
 
     this.log('\n');
-    this.log(`${tx.date.split('T')[0]}  $${tx.amount.toFixed(2)}  ${tx.merchant?.name ?? ''}`);
+    this.log(`${tx.date.split('T')[0]}  ${formatCurrency(tx.amount)}  ${tx.merchant?.name ?? ''}`);
     this.log(tx.description);
 
     // Build suggestions

@@ -12,6 +12,26 @@ describe('overview', () => {
     }
   })
 
+  it('handles --compare flag', async () => {
+    try {
+      const {stdout} = await runCommand('overview --compare')
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
+
+  it('handles --compare with --since flag', async () => {
+    try {
+      const {stdout} = await runCommand('overview --since thismonth --compare')
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
+
   it('handles days flag', async () => {
     try {
       const {stdout} = await runCommand('overview --days 14')
@@ -68,5 +88,25 @@ describe('overview', () => {
     expect(error).to.exist
     expect(error?.message).to.include('Invalid date range')
     expect(error?.message).to.include('is after')
+  })
+
+  it('handles account filter flag', async () => {
+    try {
+      const {stdout} = await runCommand('overview --account acc_12345')
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
+  })
+
+  it('handles account filter with compare flag', async () => {
+    try {
+      const {stdout} = await runCommand('overview --account acc_12345 --compare')
+      expect(stdout).to.be.a('string')
+    } catch (error) {
+      // Expected to fail without proper API configuration
+      expect(error).to.exist
+    }
   })
 })

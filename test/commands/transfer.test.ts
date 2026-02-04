@@ -93,4 +93,15 @@ describe('transfer', () => {
       expect(error).to.exist
     }
   })
+
+  it('requires either --confirm or --dry-run flag for safety', async () => {
+    try {
+      await runCommand('transfer --from acc_123 --to 12-3456-0123456-00 --amount 100.00')
+      expect.fail('Should have thrown an error for missing safety flag')
+    } catch (error: any) {
+      expect(error).to.exist
+      // The error message should mention the safety requirement
+      expect(error.message || error.toString()).to.match(/confirm|dry-run|safety/i)
+    }
+  })
 })

@@ -1,14 +1,31 @@
-The changes are in place. Summary of the improvement:
+## Summary
 
-**Change:** Added `--quiet` / `-q` flag to the `overview` command for consistency with other commands (`accounts`, `transactions`, `categories`).
+I fixed **inconsistent currency formatting** across the codebase. The CLI already had a well-implemented `formatCurrency()` function in `src/utils/output.ts` that properly formats currency with:
+- NZ locale formatting with thousands separators (e.g., `$1,234.56`)
+- Correct handling of negative amounts (`-$99.50`)
+- Consistent 2 decimal places
 
-**Impact:**
-1. Users can now suppress informational messages in `overview` output (e.g., cache status, "(using cached data)" messages)
-2. Better for scripting when output needs to be cleaner
-3. Consistent CLI UX across all commands
+However, several files were using manual `.toFixed(2)` formatting instead, which:
+- Missed thousands separators (e.g., showing `$1234.56` instead of `$1,234.56`)
+- Used inconsistent patterns (e.g., `$${amount.toFixed(2)}`)
 
-**Files modified:**
-- `src/commands/overview.ts`: Added `quietFlag` import and flag definition, passed quiet state to `warnIfConfigCorrupted`, conditionally show cache-related informational messages
-- `src/utils/flags.ts`: Updated comment to include `overview` in the list of commands using `quietFlag`
+### Changes made:
+
+1. **`src/commands/transfer.ts`**:
+   - Added import for `formatCurrency`
+   - Line 134: Error message now uses `formatCurrency(amount)` and `formatCurrency(maxAmount)`
+   - Line 235: Transfer summary amount now uses `formatCurrency(summary.amount)`
+
+2. **`src/commands/accounts.ts`**:
+   - Added import for `formatCurrency`
+   - Line 91: Loan repayment amount now uses `formatCurrency()`
+   - Line 93: KiwiSaver returns now uses `formatCurrency()`
+   - Line 172: Total balance summary now uses `formatCurrency()`
+
+3. **`src/commands/categorise.ts`**:
+   - Added import for `formatCurrency`
+   - Line 129: Transaction amount display now uses `formatCurrency()`
+
+This makes all user-facing currency output consistent across the CLI, which is especially noticeable for amounts over $1,000 where thousands separators improve readability.
 
 SUCCESS

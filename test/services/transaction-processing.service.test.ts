@@ -1,10 +1,24 @@
 import { expect } from 'chai';
 import { transactionProcessingService } from '../../src/services/transaction-processing.service.js';
-import { merchantMappingService } from '../../src/services/merchant-mapping.service.js';
+import { merchantMappingService, normaliseMerchantName } from '../../src/services/merchant-mapping.service.js';
 import { FormattedTransaction, MerchantMap } from '../../src/types/index.js';
 import { Account, EnrichedTransaction } from 'akahu';
 
 describe('transaction processing service', () => {
+  // Save and restore merchant mappings to isolate tests from user config
+  let originalMappings: MerchantMap;
+
+  before(() => {
+    originalMappings = merchantMappingService.getAllMappings();
+    // Clear mappings for test isolation
+    merchantMappingService.clearAllMappings();
+  });
+
+  after(() => {
+    // Restore original mappings
+    merchantMappingService.saveMerchantMap(originalMappings);
+    merchantMappingService.invalidateCache();
+  });
   // Test data factories
   const createMockAccount = (overrides: Partial<Account> = {}): Account => ({
     _id: 'acc_123',
@@ -31,12 +45,12 @@ describe('transaction processing service', () => {
     description: 'Test transaction',
     amount: -50.00,
     type: 'DEBIT',
-    merchant: { name: 'Test Merchant' },
+    merchant: { _id: 'merch_123', name: 'Test Merchant' },
     category: {
       _id: 'cat_123',
       name: 'Groceries',
       groups: {
-        personal_finance: { name: 'Food' },
+        personal_finance: { _id: 'group_food', name: 'Food' },
       },
     },
     meta: {
@@ -154,18 +168,19 @@ describe('transaction processing service', () => {
       });
 
       it('applies user-defined merchant mapping to override API category', () => {
+        // Keys are stored normalized (lowercase, special chars replaced with spaces)
         const merchantMap: MerchantMap = {
-          'Test Merchant': { parent: 'lifestyle', category: 'entertainment' },
+          [normaliseMerchantName('Test Merchant')]: { parent: 'lifestyle', category: 'entertainment' },
         };
         merchantMappingService.loadMerchantMap = () => merchantMap;
 
         const accounts = [createMockAccount()];
         const transactions = [createMockEnrichedTransaction({
-          merchant: { name: 'Test Merchant' },
+          merchant: { _id: 'merch_123', name: 'Test Merchant' },
           category: {
             _id: 'cat_123',
             name: 'Groceries',
-            groups: { personal_finance: { name: 'Food' } },
+            groups: { personal_finance: { _id: 'group_food', name: 'Food' } },
           },
         })];
 
@@ -176,18 +191,19 @@ describe('transaction processing service', () => {
       });
 
       it('falls back to API category when no merchant mapping exists', () => {
+        // Keys are stored normalized - 'Other Merchant' normalizes differently than 'Test Merchant'
         const merchantMap: MerchantMap = {
-          'Other Merchant': { parent: 'lifestyle', category: 'entertainment' },
+          [normaliseMerchantName('Other Merchant')]: { parent: 'lifestyle', category: 'entertainment' },
         };
         merchantMappingService.loadMerchantMap = () => merchantMap;
 
         const accounts = [createMockAccount()];
         const transactions = [createMockEnrichedTransaction({
-          merchant: { name: 'Test Merchant' },
+          merchant: { _id: 'merch_123', name: 'Test Merchant' },
           category: {
             _id: 'cat_123',
             name: 'Groceries',
-            groups: { personal_finance: { name: 'Food' } },
+            groups: { personal_finance: { _id: 'group_food', name: 'Food' } },
           },
         })];
 
@@ -201,16 +217,16 @@ describe('transaction processing service', () => {
         let loadCalled = false;
         merchantMappingService.loadMerchantMap = () => {
           loadCalled = true;
-          return { 'Test Merchant': { parent: 'lifestyle', category: 'entertainment' } };
+          return { [normaliseMerchantName('Test Merchant')]: { parent: 'lifestyle', category: 'entertainment' } };
         };
 
         const accounts = [createMockAccount()];
         const transactions = [createMockEnrichedTransaction({
-          merchant: { name: 'Test Merchant' },
+          merchant: { _id: 'merch_123', name: 'Test Merchant' },
           category: {
             _id: 'cat_123',
             name: 'Groceries',
-            groups: { personal_finance: { name: 'Food' } },
+            groups: { personal_finance: { _id: 'group_food', name: 'Food' } },
           },
         })];
 
@@ -225,7 +241,7 @@ describe('transaction processing service', () => {
 
       it('handles transactions without merchant name', () => {
         const merchantMap: MerchantMap = {
-          'Test Merchant': { parent: 'lifestyle', category: 'entertainment' },
+          [normaliseMerchantName('Test Merchant')]: { parent: 'lifestyle', category: 'entertainment' },
         };
         merchantMappingService.loadMerchantMap = () => merchantMap;
 
@@ -235,7 +251,7 @@ describe('transaction processing service', () => {
           category: {
             _id: 'cat_123',
             name: 'Groceries',
-            groups: { personal_finance: { name: 'Food' } },
+            groups: { personal_finance: { _id: 'group_food', name: 'Food' } },
           },
         })];
 
@@ -250,7 +266,7 @@ describe('transaction processing service', () => {
 
         const accounts = [createMockAccount()];
         const transactions = [createMockEnrichedTransaction({
-          merchant: { name: 'Unknown Merchant' },
+          merchant: { _id: 'merch_unknown', name: 'Unknown Merchant' },
           category: undefined,
         })];
 
@@ -262,18 +278,19 @@ describe('transaction processing service', () => {
 
       it('applies merchant mapping even when API category exists (user override)', () => {
         // This tests that user's categorization takes precedence over API
+        // Keys are stored normalized (lowercase, special chars replaced with spaces)
         const merchantMap: MerchantMap = {
-          'Countdown': { parent: 'food', category: 'groceries' },
+          [normaliseMerchantName('Countdown')]: { parent: 'food', category: 'groceries' },
         };
         merchantMappingService.loadMerchantMap = () => merchantMap;
 
         const accounts = [createMockAccount()];
         const transactions = [createMockEnrichedTransaction({
-          merchant: { name: 'Countdown' },
+          merchant: { _id: 'merch_countdown', name: 'Countdown' },
           category: {
             _id: 'cat_123',
             name: 'Supermarket',
-            groups: { personal_finance: { name: 'Shopping' } },
+            groups: { personal_finance: { _id: 'group_shopping', name: 'Shopping' } },
           },
         })];
 
@@ -480,6 +497,19 @@ describe('transaction processing service', () => {
         expect(result).to.have.length(2);
         expect(result.map(t => t.id)).to.include.members(['tx_1', 'tx_3']);
       });
+
+      it('searches by transaction ID case-insensitively', () => {
+        const transactions = [
+          createFormattedTransaction({ id: 'tx_ABC123', description: 'Something else' }),
+          createFormattedTransaction({ id: 'tx_def456', description: 'Another thing' }),
+        ];
+
+        // Search with different case should still find the transaction
+        const result = transactionProcessingService.applyFilters(transactions, { search: 'TX_abc123' });
+
+        expect(result).to.have.length(1);
+        expect(result[0].id).to.equal('tx_ABC123');
+      });
     });
 
     describe('combined filters', () => {
@@ -551,6 +581,87 @@ describe('transaction processing service', () => {
 
         expect(result).to.have.length(1);
         expect(result[0].id).to.equal('tx_2');
+      });
+
+      it('combines direction "out" with amount filters to find spending in a range', () => {
+        // Common use case: "show me all my spending between $50 and $200"
+        const transactions = [
+          createFormattedTransaction({ id: 'tx_1', amount: -25 }),   // spending, too small
+          createFormattedTransaction({ id: 'tx_2', amount: -75 }),   // spending, in range
+          createFormattedTransaction({ id: 'tx_3', amount: -150 }),  // spending, in range
+          createFormattedTransaction({ id: 'tx_4', amount: -300 }),  // spending, too large
+          createFormattedTransaction({ id: 'tx_5', amount: 100 }),   // income, filtered by direction
+          createFormattedTransaction({ id: 'tx_6', amount: 500 }),   // income, filtered by direction
+        ];
+
+        const result = transactionProcessingService.applyFilters(transactions, {
+          direction: 'out',
+          minAmount: 50,
+          maxAmount: 200,
+        });
+
+        expect(result).to.have.length(2);
+        expect(result.map(t => t.id)).to.include.members(['tx_2', 'tx_3']);
+      });
+
+      it('combines direction "in" with amount filters to find income in a range', () => {
+        // Common use case: "show me income between $1000 and $5000"
+        const transactions = [
+          createFormattedTransaction({ id: 'tx_1', amount: 500 }),    // income, too small
+          createFormattedTransaction({ id: 'tx_2', amount: 1500 }),   // income, in range
+          createFormattedTransaction({ id: 'tx_3', amount: 3000 }),   // income, in range
+          createFormattedTransaction({ id: 'tx_4', amount: 10000 }),  // income, too large
+          createFormattedTransaction({ id: 'tx_5', amount: -2000 }),  // spending, filtered by direction
+        ];
+
+        const result = transactionProcessingService.applyFilters(transactions, {
+          direction: 'in',
+          minAmount: 1000,
+          maxAmount: 5000,
+        });
+
+        expect(result).to.have.length(2);
+        expect(result.map(t => t.id)).to.include.members(['tx_2', 'tx_3']);
+      });
+
+      it('combines direction with merchant and amount filters', () => {
+        // Use case: "how much have I spent at supermarkets between $50-$200?"
+        const transactions = [
+          createFormattedTransaction({ id: 'tx_1', amount: -75, merchant: 'Countdown' }),
+          createFormattedTransaction({ id: 'tx_2', amount: -120, merchant: 'New World' }),
+          createFormattedTransaction({ id: 'tx_3', amount: -300, merchant: 'Countdown' }), // too large
+          createFormattedTransaction({ id: 'tx_4', amount: -90, merchant: 'BP Fuel' }),    // wrong merchant
+          createFormattedTransaction({ id: 'tx_5', amount: 100, merchant: 'Countdown' }),  // income
+        ];
+
+        const result = transactionProcessingService.applyFilters(transactions, {
+          direction: 'out',
+          merchant: 'countdown, new world',
+          minAmount: 50,
+          maxAmount: 200,
+        });
+
+        expect(result).to.have.length(2);
+        expect(result.map(t => t.id)).to.include.members(['tx_1', 'tx_2']);
+      });
+
+      it('combines direction with category and amount filters', () => {
+        // Use case: "show me food spending over $50"
+        const transactions = [
+          createFormattedTransaction({ id: 'tx_1', amount: -75, parentCategory: 'Food' }),
+          createFormattedTransaction({ id: 'tx_2', amount: -30, parentCategory: 'Food' }),     // too small
+          createFormattedTransaction({ id: 'tx_3', amount: -100, parentCategory: 'Transport' }), // wrong category
+          createFormattedTransaction({ id: 'tx_4', amount: 200, parentCategory: 'Food' }),    // income
+        ];
+
+        const result = transactionProcessingService.applyFilters(transactions, {
+          direction: 'out',
+          parentCategory: 'Food',
+          minAmount: 50,
+        });
+
+        expect(result).to.have.length(1);
+        expect(result[0].id).to.equal('tx_1');
       });
     });
   });
@@ -665,8 +776,8 @@ describe('transaction processing service', () => {
   describe('getUncategorizedTransactions', () => {
     it('returns transactions without category name', () => {
       const transactions = [
-        createMockEnrichedTransaction({ _id: 'tx_1', category: { _id: 'cat_1', name: 'Groceries', groups: { personal_finance: { name: 'Food' } } } as any }),
-        createMockEnrichedTransaction({ _id: 'tx_2', category: { _id: 'cat_2', name: undefined, groups: { personal_finance: { name: 'Food' } } } as any }),
+        createMockEnrichedTransaction({ _id: 'tx_1', category: { _id: 'cat_1', name: 'Groceries', groups: { personal_finance: { _id: 'group_food', name: 'Food' } } } as any }),
+        createMockEnrichedTransaction({ _id: 'tx_2', category: { _id: 'cat_2', name: undefined, groups: { personal_finance: { _id: 'group_food', name: 'Food' } } } as any }),
       ];
 
       const result = transactionProcessingService.getUncategorizedTransactions(transactions);
@@ -677,7 +788,7 @@ describe('transaction processing service', () => {
 
     it('returns transactions without personal_finance group', () => {
       const transactions = [
-        createMockEnrichedTransaction({ _id: 'tx_1', category: { _id: 'cat_1', name: 'Groceries', groups: { personal_finance: { name: 'Food' } } } as any }),
+        createMockEnrichedTransaction({ _id: 'tx_1', category: { _id: 'cat_1', name: 'Groceries', groups: { personal_finance: { _id: 'group_food', name: 'Food' } } } as any }),
         createMockEnrichedTransaction({ _id: 'tx_2', category: { _id: 'cat_2', name: 'Unknown', groups: {} } as any }),
       ];
 

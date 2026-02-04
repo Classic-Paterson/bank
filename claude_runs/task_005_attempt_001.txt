@@ -1,37 +1,29 @@
-The improvement is complete. Here's what was changed:
+The new features are working. Let me provide a summary of what was added:
 
-## Summary of Changes
+**Changes Made:**
 
-### Enhanced Empty State Messages
+1. **Added two new date shortcuts in `src/utils/date.ts`:**
+   - `endofthismonth` - Returns the last day of the current month (useful for planning)
+   - `endoflastweek` - Returns last Sunday (end of previous week, completing the week query pattern)
 
-**`src/commands/transactions.ts`** - When no transactions match the search criteria, users now see:
-- The exact date range that was searched
-- All active filters displayed clearly
-- Helpful debugging tips including:
-  - Suggestion to widen the date range
-  - A `jq` command to list available merchants
-  - Note that merchant names are case-insensitive
+2. **Updated flag descriptions in `src/utils/flags.ts`:**
+   - Added the new shortcuts to the `--until` flag description
 
-**`src/commands/accounts.ts`** - When no accounts match, users now see:
-- The filters that were applied
-- Tips for debugging (remove filters, type case-insensitivity note)
+3. **Added example in `src/commands/transactions.ts`:**
+   - Added `--since lastweek --until endoflastweek` example for querying a full week
 
-### Before (unhelpful):
-```
-No transactions found matching your criteria.
-```
+4. **Added 3 new tests in `test/utils/date.test.ts`:**
+   - Test for `endofthismonth`
+   - Test for `endoflastweek`
+   - Case-insensitivity test for `ENDOFLASTWEEK`
 
-### After (helpful):
-```
-No transactions found between 2024-01-01 and 2024-02-03.
-Filters: merchant="Countdwn"
+**Why this improves the CLI:**
 
-Tips:
-  - Try a wider date range: --days 90
-  - Check available merchants: bank transactions --days 30 --format json | jq -r ".[].merchant" | sort -u
-  - Merchant names are case-insensitive but must match exactly
-```
+Users can now query complete time periods more naturally:
+- `--since lastmonth --until endoflastmonth` - Full last month (already existed)
+- `--since lastweek --until endoflastweek` - Full last week (Mon-Sun) (NEW)
+- `--since thismonth --until endofthismonth` - Full current month including future (NEW)
 
-This change significantly improves the UX by helping users understand why they got no results and how to debug the issue - a common pain point in CLI tools.
+This completes the pattern of start/end shortcuts for weeks and months, making the date filtering system more consistent and professional.
 
 SUCCESS

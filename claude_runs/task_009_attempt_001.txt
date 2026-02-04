@@ -1,42 +1,30 @@
-All 268 tests pass, build succeeds, and linting passes.
+The implementation is complete. Here's a summary of the improvement:
 
-## Summary of Changes
+## Summary
 
-I added **month-based date shortcuts** to the banking CLI to make it easier for users to query financial data by common time periods. This is a high-impact UX improvement for a banking CLI where monthly analysis is very common.
+**Added `--summary` flag to the `transactions` command**
 
-### New Date Shortcuts Added:
+This new flag provides a quick spending summary after the transaction list, showing:
+- **Income**: Total positive amounts (excluding transfers)
+- **Spending**: Total negative amounts (excluding transfers)  
+- **Net**: The difference (income + spending)
 
-| Shortcut | Description | Example Usage |
-|----------|-------------|---------------|
-| `Nm` / `Nmonths` | N months ago | `--since 3m` |
-| `thismonth` | First day of current month | `--since thismonth` |
-| `lastmonth` | First day of previous month | `--since lastmonth` |
-| `endoflastmonth` | Last day of previous month | `--until endoflastmonth` |
+**User value**: Users can now get a quick financial snapshot along with their transactions without using the verbose `--details` flag. This is the "at a glance" information most users want when reviewing transactions.
 
-### Files Changed:
-- `src/utils/date.ts` - Added `monthsAgo()` function and month shortcuts to date parser
-- `src/utils/flags.ts` - Updated help text to mention new shortcuts
-- `test/utils/date.test.ts` - Added 11 new tests for month shortcuts
-
-### Example Usage:
+**Example usage**:
 ```bash
-# View last month's transactions
-bank transactions --since lastmonth --until endoflastmonth
-
-# View this month's spending  
-bank transactions --since thismonth --direction out
-
-# View last 3 months of category spending
-bank categories --since 3m
-
-# Compare monthly trends
-bank overview --since lastmonth
+bank transactions --days 30 --summary
+bank transactions -s                    # shorthand
+bank transactions --merchant "Countdown" --summary
 ```
 
-This change:
-- Is backwards compatible (existing shortcuts still work)
-- Follows existing code patterns
-- Has comprehensive test coverage
-- Updates help text to be discoverable
+**Changes made**:
+- `src/commands/transactions.ts`: Added `--summary` flag (`-s` shorthand) with income/spending/net calculation
+- `test/commands/transactions.test.ts`: Added 2 tests for the new flag
+
+**Build/Test results**:
+- Build: ✅ Passed
+- Lint: ✅ Passed
+- Tests: ✅ 297 passing (including 2 new tests)
 
 SUCCESS

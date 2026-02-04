@@ -10,6 +10,8 @@ import { cacheService } from '../services/cache.service.js';
 import { DEFAULT_TRANSFER_MAX_AMOUNT, NZ_ACCOUNT_PATTERN } from '../constants/index.js';
 import { getErrorMessage } from '../utils/error.js';
 import { warnIfConfigCorrupted } from '../utils/flags.js';
+import { maskSensitiveValue, maskAccountNumber } from '../utils/mask.js';
+import { formatCurrency } from '../utils/output.js';
 
 /**
  * Validates NZ bank account number format.
@@ -87,7 +89,7 @@ export default class Transfer extends Command {
     // Safety check: Either --confirm or --dry-run must be provided
     if (!flags.confirm && !flags['dry-run']) {
       this.error(
-        chalk.red('⚠️  SAFETY REQUIRED: Transfer commands require either --confirm or --dry-run flag.\n') +
+        chalk.red('SAFETY REQUIRED: Transfer commands require either --confirm or --dry-run flag.\n') +
         chalk.yellow('Use --dry-run to preview the transfer without executing it.\n') +
         chalk.yellow('Use --confirm to execute the transfer after reviewing the summary.\n') +
         chalk.gray('Example: bank transfer --from "My Account" --to 12-3456-7890123-00 --amount 100.00 --confirm')
@@ -102,7 +104,7 @@ export default class Transfer extends Command {
     // Validate destination account number format (NZ bank account: XX-XXXX-XXXXXXX-XX)
     if (!isValidNZAccountNumber(flags.to)) {
       this.error(
-        chalk.red('⚠️  Invalid destination account number format.\n') +
+        chalk.red('Invalid destination account number format.\n') +
         chalk.yellow('NZ bank accounts must be in the format: BB-bbbb-AAAAAAA-SS\n') +
         chalk.gray('  BB:      Bank code (2 digits)\n') +
         chalk.gray('  bbbb:    Branch code (4 digits)\n') +
@@ -131,7 +133,7 @@ export default class Transfer extends Command {
     const maxAmount = configService.get<number>('transferMaxAmount') ?? DEFAULT_TRANSFER_MAX_AMOUNT;
     if (amount > maxAmount) {
       this.error(
-        chalk.red(`⚠️  Amount $${amount.toFixed(2)} exceeds the configured maximum of $${maxAmount.toFixed(2)}.\n`) +
+        chalk.red(`Amount ${formatCurrency(amount)} exceeds the configured maximum of ${formatCurrency(maxAmount)}.\n`) +
         chalk.gray(`To increase this limit: bank settings set transferMaxAmount ${amount}`)
       );
     }
@@ -141,11 +143,19 @@ export default class Transfer extends Command {
       const { resolvedAccountId: fromResolvedId, account: fromAccount } = await this.resolveAccount(flags.from);
       fromAccountId = fromResolvedId;
 
+      // Safety check: Prevent transferring to the same account
+      if (fromAccount.formatted_account === flags.to) {
+        this.error(
+          chalk.red('Source and destination accounts are identical.\n') +
+          chalk.yellow('Cannot transfer funds to the same account.')
+        );
+      }
+
       // Check destination account allowlist if configured
       const allowedDestinations = configService.get<string[]>('transferAllowlist') || [];
       if (allowedDestinations.length > 0 && !allowedDestinations.includes(flags.to)) {
         this.error(
-          chalk.red('⚠️  Destination account not in allowlist.\n') +
+          chalk.red('Destination account not in allowlist.\n') +
           chalk.yellow(`Allowed destinations: ${allowedDestinations.join(', ')}\n`) +
           chalk.gray('Update allowlist with: bank settings set transferAllowlist "12-3456-7890123-00,98-7654-3210987-00"')
         );
@@ -154,11 +164,11 @@ export default class Transfer extends Command {
       // Create transfer summary
       const transferSummary: TransferSummary = {
         fromAccount: {
-          id: this.maskSensitiveData(fromAccountId),
+          id: maskSensitiveValue(fromAccountId),
           name: fromAccount.name,
-          maskedNumber: this.maskAccountNumber(fromAccount.formatted_account || fromAccount.name),
+          maskedNumber: maskAccountNumber(fromAccount.formatted_account || fromAccount.name),
         },
-        toAccount: this.maskAccountNumber(flags.to),
+        toAccount: maskAccountNumber(flags.to),
         amount,
         description,
         reference,
@@ -169,7 +179,7 @@ export default class Transfer extends Command {
 
       // Handle dry-run mode
       if (flags['dry-run']) {
-        this.log(chalk.blue('\n🔍 DRY RUN MODE - No transfer will be executed'));
+        this.log(chalk.blue('\n[DRY RUN] No transfer will be executed'));
         this.log(chalk.gray('To execute this transfer, run the same command with --confirm instead of --dry-run'));
         return;
       }
@@ -182,7 +192,7 @@ export default class Transfer extends Command {
       }
 
       // Execute transfer
-      this.log(chalk.blue('\n💸 Executing transfer...'));
+      this.log(chalk.blue('\nExecuting transfer...'));
       await this.executeTransfer({
         fromAccountId,
         toAccountId: flags.to,
@@ -228,11 +238,11 @@ export default class Transfer extends Command {
   }
 
   private displayTransferSummary(summary: TransferSummary): void {
-    this.log(chalk.bold('\n📋 TRANSFER SUMMARY'));
-    this.log(chalk.gray('━'.repeat(50)));
+    this.log(chalk.bold('\nTRANSFER SUMMARY'));
+    this.log(chalk.gray('-'.repeat(50)));
     this.log(`${chalk.bold('From:')} ${summary.fromAccount.name} (${summary.fromAccount.maskedNumber})`);
     this.log(`${chalk.bold('To:')} ${summary.toAccount}`);
-    this.log(`${chalk.bold('Amount:')} ${chalk.green(`$${summary.amount.toFixed(2)} NZD`)}`);
+    this.log(`${chalk.bold('Amount:')} ${chalk.green(`${formatCurrency(summary.amount)} NZD`)}`);
     
     if (summary.description) {
       this.log(`${chalk.bold('Description:')} ${summary.description}`);
@@ -240,7 +250,7 @@ export default class Transfer extends Command {
     if (summary.reference) {
       this.log(`${chalk.bold('Reference:')} ${summary.reference}`);
     }
-    this.log(chalk.gray('━'.repeat(50)));
+    this.log(chalk.gray('-'.repeat(50)));
   }
 
   private async confirmTransfer(): Promise<boolean> {
@@ -248,7 +258,7 @@ export default class Transfer extends Command {
       {
         type: 'confirm',
         name: 'proceed',
-        message: chalk.red('⚠️  Are you sure you want to execute this transfer? This action cannot be undone.'),
+        message: chalk.red('WARNING: Are you sure you want to execute this transfer? This action cannot be undone.'),
         default: false,
       },
     ]);
@@ -278,10 +288,10 @@ export default class Transfer extends Command {
       if (attempts >= MAX_POLL_ATTEMPTS) {
         spinner.stop();
         const timeoutSeconds = (MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000;
-        this.log(chalk.yellow(`\n⏳ Transfer is still processing after ${timeoutSeconds} seconds.`));
+        this.log(chalk.yellow(`\nTransfer is still processing after ${timeoutSeconds} seconds.`));
         this.log(chalk.blue('This does NOT mean the transfer failed.'));
         this.log(chalk.gray(`Current status: ${transferResponse.status}`));
-        this.log(chalk.gray(`Transfer ID: ${this.maskSensitiveData(transferId)}`));
+        this.log(chalk.gray(`Transfer ID: ${maskSensitiveValue(transferId)}`));
         this.log(chalk.gray('\nThe transfer is likely still in progress. Bank transfers can take'));
         this.log(chalk.gray('several minutes to complete. Check your bank app or wait for'));
         this.log(chalk.gray('confirmation from your bank.'));
@@ -294,40 +304,24 @@ export default class Transfer extends Command {
     spinner.stop();
 
     if (transferResponse.status === 'SENT') {
-      this.log(chalk.green('✅ Transfer completed successfully.'));
+      this.log(chalk.green('Transfer completed successfully.'));
     } else if (transferResponse.status === 'DECLINED') {
-      this.log(chalk.red(`❌ Transfer was declined by the bank.`));
+      this.log(chalk.red('Transfer was declined by the bank.'));
     } else if (transferResponse.status === 'ERROR') {
-      this.log(chalk.red(`❌ Transfer encountered an error.`));
+      this.log(chalk.red('Transfer encountered an error.'));
     } else if (transferResponse.status === 'PAUSED') {
-      this.log(chalk.yellow(`⚠️  Transfer is paused and requires attention.`));
+      this.log(chalk.yellow('Transfer is paused and requires attention.'));
     }
 
-    this.log(chalk.gray(`Transfer ID: ${this.maskSensitiveData(transferId)}`));
-  }
-
-  private maskSensitiveData(data: string): string {
-    if (data.length <= 8) {
-      return '*'.repeat(data.length);
-    }
-    return `${data.substring(0, 4)}${'*'.repeat(data.length - 8)}${data.substring(data.length - 4)}`;
-  }
-
-  private maskAccountNumber(accountNumber: string): string {
-    // Handle NZ bank account format (XX-XXXX-XXXXXXX-XX)
-    const parts = accountNumber.split('-');
-    if (parts.length === 4) {
-      return `${parts[0]}-****-***${parts[2].substring(parts[2].length - 4)}-${parts[3]}`;
-    }
-    // Fallback for other formats
-    return this.maskSensitiveData(accountNumber);
+    this.log(chalk.gray(`Transfer ID: ${maskSensitiveValue(transferId)}`));
   }
 
   private sanitizeErrorMessage(message: string): string {
     // Remove or mask potential sensitive information from error messages
+    // Use same masking pattern as maskAccountNumber for consistency
     return message
       .replace(/acc_[a-zA-Z0-9]+/g, 'acc_****')
-      .replace(/\d{2}-\d{4}-\d{7}-\d{2}/g, '**-****-*****-**')
+      .replace(/(\d{2})-\d{4}-\d{7}-(\d{2,3})/g, '$1-****-*******-$2')
       .replace(/\$[\d,]+\.?\d*/g, '$***.**');
   }
 }

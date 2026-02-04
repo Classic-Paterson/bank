@@ -1,0 +1,34 @@
+The feature is implemented correctly. Let me provide a summary of the change:
+
+## Summary
+
+I added a new `--topCategories` flag to the `transactions` command that shows the top N spending categories, similar to the existing `--top` flag for merchants.
+
+### Changes Made:
+
+1. **`src/commands/transactions.ts`**:
+   - Added `--topCategories` flag definition with integer type
+   - Added validation to reject values less than 1
+   - Added to mutually exclusive flags check (can't be combined with `--count`, `--total`, `--merchants`, `--top`, or `--stats`)
+   - Implemented handler that aggregates spending by parent category (excluding transfers and income)
+   - Added two usage examples to the help text
+
+2. **`test/commands/transactions.test.ts`**:
+   - Added 6 new tests for the feature:
+     - Basic functionality test
+     - Validation test for value of 0
+     - Validation test for negative values
+     - Mutual exclusion tests with `--top`, `--count`, and `--stats`
+
+### Usage Examples:
+```bash
+# Show top 5 spending categories over last 30 days
+bank transactions --days 30 --topCategories 5
+
+# Show top 3 categories this month
+bank transactions --since thismonth --topCategories 3
+```
+
+The output is formatted consistently with the `--top` flag for merchants, showing category names aligned with their total spending amounts.
+
+SUCCESS

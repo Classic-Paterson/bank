@@ -3483,3 +3483,1650 @@ SUCCESS
 
 ---
 
+## Task 1
+
+**Completed:** 2026-02-04 10:01:50  
+**Attempts:** 1  
+**Log file:** `task_001_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The critical issue (broken test suite) is now fixed. All 274 tests pass, lint passes, and build passes.
+
+**Summary of fix:**
+- The Akahu SDK types require `_id` on merchant objects and `_id` on the category group objects (e.g., `personal_finance`)
+- Updated the test mock factory `createMockEnrichedTransaction` to include `_id: 'merch_123'` on the merchant object
+- Updated all test cases that override the merchant to include `_id`  
+- Updated all `personal_finance` group objects to include `_id`
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 2
+
+**Completed:** 2026-02-04 10:07:29  
+**Attempts:** 1  
+**Log file:** `task_002_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All tasks completed. Here's a summary of the changes made:
+
+## Changes Made
+
+### 1. Case-insensitive transaction type comparison (`src/constants/index.ts`)
+- Updated `isExcludedTransactionType()` to convert the input to uppercase before comparison
+- This ensures consistent behavior regardless of API case variations
+
+### 2. Flag collision fix (`src/commands/transactions.ts`)
+- Removed the `-r` short flag from `--relative` flag
+- The `-r` was conflicting with `--refresh` (which also uses `-r`)
+- Users can still use `--relative` (long form only)
+
+### 3. UNCATEGORIZED constant (`src/constants/index.ts`)
+- Added `UNCATEGORIZED = 'Uncategorized'` constant
+- Updated these files to use the constant:
+  - `src/services/transaction-processing.service.ts`
+  - `src/commands/transactions.ts`
+  - `src/commands/categories.ts`
+  - `src/commands/overview.ts`
+
+### 4. Consistent use of `isExcludedTransactionType()` helper
+- `src/commands/transactions.ts`: Replaced direct `tx.type === 'TRANSFER'` check
+- `src/commands/categories.ts`: Replaced direct `tx.type === 'TRANSFER'` check
+
+### 5. Quiet flag for query command (`src/commands/query.ts`)
+- Added `quiet` flag to the query command
+- Updated `runQuery()` to respect quiet mode for informational messages
+- Added `quiet` to QueryFlags interface
+
+All 274 tests pass and linting succeeds.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 3
+
+**Completed:** 2026-02-04 10:13:36  
+**Attempts:** 1  
+**Log file:** `task_003_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All changes have been implemented and verified. Here's a summary of what was done:
+
+## Summary of Changes
+
+### 1. Smart Time Presets (High-Impact UX Improvement)
+Added intuitive date shortcuts that match how users naturally think about time periods:
+
+**New presets added to `src/utils/date.ts`:**
+- `thisweek` - First day of current week (Monday)
+- `lastweek` - First day of previous week (Monday)
+- `thisquarter` - First day of current quarter
+- `lastquarter` - First day of previous quarter
+- `thisyear` - First day of current year
+- `lastyear` - First day of previous year
+
+**Usage examples:**
+```bash
+bank transactions --since thismonth       # This month so far
+bank transactions --since thisweek        # This week (Mon-today)
+bank transactions --since thisquarter     # This quarter so far
+bank transactions --since thisyear        # Year to date
+bank categories --since lastquarter       # Last quarter spending
+```
+
+### 2. Fixed Empty State Handling in Categories Command
+The `categories` command now provides helpful guidance when no spending is found instead of silently outputting nothing:
+
+```
+No spending found between 2024-01-01 and 2024-01-31.
+
+This could be because:
+  - No outgoing transactions exist in this date range
+  - All transactions are internal transfers (excluded from spending)
+
+Tips:
+  - Try a wider date range: --days 90
+  - Check your transactions: bank transactions --since 2024-01-01
+```
+
+### 3. Updated Documentation
+- Updated flag descriptions in `src/utils/flags.ts` to list all available presets
+- Added practical examples to command help text showing the new presets
+- Updated error messages to mention more shortcut options
+- Added 8 new unit tests for the new date presets
+
+### Files Changed:
+- `src/utils/date.ts` - Added 6 new date presets
+- `src/utils/flags.ts` - Updated flag description
+- `src/commands/categories.ts` - Fixed empty state handling + examples
+- `src/commands/transactions.ts` - Added examples
+- `src/commands/overview.ts` - Added examples
+- `src/commands/query.ts` - Added examples
+- `test/utils/date.test.ts` - Added 8 new tests
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 4
+
+**Completed:** 2026-02-04 10:19:15  
+**Attempts:** 1  
+**Log file:** `task_004_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The categories command now uses the shared `formatFlag` constant and works correctly.
+
+Let me summarize the changes made:
+
+## Summary of Changes
+
+### 1. Fixed settings.ts `-h` flag conflict
+**Issue**: The settings command defined a custom `-h` flag for showing available settings, which conflicts with oclif's reserved `-h` for help.
+
+**Solution**: 
+- Removed the custom `-h, --help` flag
+- Added a new `help` action (`bank settings help`) that shows detailed setting information
+- Updated examples and error messages to reflect the new action
+
+### 2. Standardized categories.ts format flag
+**Issue**: The categories command defined its own `format` flag inline instead of using the shared `formatFlag` constant from `utils/flags.ts`.
+
+**Solution**:
+- Replaced the inline flag definition with the shared `formatFlag` constant
+- Removed unused `Flags` import and `OUTPUT_FORMATS` import
+- This ensures consistency across all commands that use format flags
+
+### 3. Improved merchant matching help text
+**Issue**: The transactions command displayed a confusing tip: "Merchant names are case-insensitive but must match exactly" - this is contradictory (case-insensitive implies partial matching).
+
+**Solution**:
+- Updated the help text to accurately describe the behavior: "Merchant filter is case-insensitive and matches substrings (e.g., 'pak' matches 'Pak N Save')"
+- This matches the actual implementation which uses `includes()` for substring matching
+
+### 4. Added test for new settings help action
+- Added a new test case to verify the `settings help` action works correctly
+
+All tests pass (282 total), build succeeds, and linting passes.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 5
+
+**Completed:** 2026-02-04 10:24:22  
+**Attempts:** 1  
+**Log file:** `task_005_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The new features are working. Let me provide a summary of what was added:
+
+**Changes Made:**
+
+1. **Added two new date shortcuts in `src/utils/date.ts`:**
+   - `endofthismonth` - Returns the last day of the current month (useful for planning)
+   - `endoflastweek` - Returns last Sunday (end of previous week, completing the week query pattern)
+
+2. **Updated flag descriptions in `src/utils/flags.ts`:**
+   - Added the new shortcuts to the `--until` flag description
+
+3. **Added example in `src/commands/transactions.ts`:**
+   - Added `--since lastweek --until endoflastweek` example for querying a full week
+
+4. **Added 3 new tests in `test/utils/date.test.ts`:**
+   - Test for `endofthismonth`
+   - Test for `endoflastweek`
+   - Case-insensitivity test for `ENDOFLASTWEEK`
+
+**Why this improves the CLI:**
+
+Users can now query complete time periods more naturally:
+- `--since lastmonth --until endoflastmonth` - Full last month (already existed)
+- `--since lastweek --until endoflastweek` - Full last week (Mon-Sun) (NEW)
+- `--since thismonth --until endofthismonth` - Full current month including future (NEW)
+
+This completes the pattern of start/end shortcuts for weeks and months, making the date filtering system more consistent and professional.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 6
+
+**Completed:** 2026-02-04 10:27:47  
+**Attempts:** 1  
+**Log file:** `task_006_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The fix has been implemented and verified. Here's a summary of what was changed:
+
+**Bug Fixed: Case-sensitivity inconsistency in search filter**
+
+The search filter in `transaction-processing.service.ts` had an inconsistency:
+- Description searches were case-insensitive (lowercasing both sides)
+- Transaction ID searches were case-sensitive (exact match only)
+
+This meant searching for `tx_ABC123` would not find a transaction with ID `tx_abc123`, which is confusing UX.
+
+**Change made:**
+- `src/services/transaction-processing.service.ts:125-132` - Changed transaction ID comparison from exact match (`tx.id === filters.search`) to case-insensitive match (`tx.id.toLowerCase() === searchTerm`)
+
+**Test added:**
+- Added a new test case "searches by transaction ID case-insensitively" to verify the fix
+
+All 286 tests pass, build succeeds, and linting passes.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 7
+
+**Completed:** 2026-02-04 10:32:15  
+**Attempts:** 1  
+**Log file:** `task_007_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The improvement is complete. Here's a summary of what was changed:
+
+## Changes Made
+
+### Fixed account masking inconsistency in `src/commands/transfer.ts`
+
+**Problem:** The codebase had inconsistent account number masking:
+- `maskAccountNumber()` showed `XX-****-***XXXX-XX` (revealing last 4 digits of account number part)
+- `sanitizeErrorMessage()` showed `**-****-*****-**` (fully masked, no visible digits)
+
+**Solution:**
+1. Standardized masking format to `BB-****-*******-SS` (shows bank code and suffix, fully masks branch and account number)
+2. Added proper format validation before masking to prevent edge case bugs
+3. Updated error sanitizer regex to capture and preserve bank code and suffix for consistency
+
+**Benefits:**
+- Consistent masking across transfer summary display and error messages
+- Bank code (BB) is useful for identifying which bank without revealing sensitive info
+- Suffix is low-sensitivity but helps users verify correct account
+- Branch and account number (the sensitive parts) are now fully masked
+- Defensive validation prevents potential substring errors on malformed input
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 8
+
+**Completed:** 2026-02-04 10:36:19  
+**Attempts:** 1  
+**Log file:** `task_008_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The changes are complete. Here's a summary of what was improved:
+
+## Summary of Changes
+
+**Problem Identified:** Duplicate `formatRelativeTime` implementations existed in two places:
+1. `src/utils/output.ts` - comprehensive version with minutes/hours granularity
+2. `src/services/transaction-processing.service.ts` - compact version for table display
+
+**Solution Implemented:**
+
+1. **Enhanced `formatRelativeTime` in `src/utils/output.ts`** (lines 62-133):
+   - Added `RelativeTimeOptions` interface with `compact` option
+   - When `compact: true`:
+     - Uses "today" instead of "just now" for same-day times
+     - Uses abbreviated weeks ("2w ago" instead of "2 weeks ago")
+     - Falls back to locale date string for times older than 30 days
+   - Backward compatible - existing calls work without any changes
+
+2. **Updated `src/services/transaction-processing.service.ts`**:
+   - Removed 17-line private `formatRelativeTime` method
+   - Now imports and uses the consolidated utility with `{ compact: true }`
+   - Reduced file from 252 to 231 lines
+
+3. **Added comprehensive tests in `test/utils/output.test.ts`**:
+   - 9 new test cases for compact mode
+   - Tests for edge cases like weeks formatting, future dates, and fallback behavior
+
+**Benefits:**
+- Single source of truth for relative time formatting
+- Consistent behavior across the application
+- Both verbose and compact formats available via options
+- Better test coverage with 295 passing tests
+- Reduced code duplication (~17 lines removed)
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 9
+
+**Completed:** 2026-02-04 10:40:43  
+**Attempts:** 1  
+**Log file:** `task_009_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The implementation is complete. Here's a summary of the improvement:
+
+## Summary
+
+**Added `--summary` flag to the `transactions` command**
+
+This new flag provides a quick spending summary after the transaction list, showing:
+- **Income**: Total positive amounts (excluding transfers)
+- **Spending**: Total negative amounts (excluding transfers)  
+- **Net**: The difference (income + spending)
+
+**User value**: Users can now get a quick financial snapshot along with their transactions without using the verbose `--details` flag. This is the "at a glance" information most users want when reviewing transactions.
+
+**Example usage**:
+```bash
+bank transactions --days 30 --summary
+bank transactions -s                    # shorthand
+bank transactions --merchant "Countdown" --summary
+```
+
+**Changes made**:
+- `src/commands/transactions.ts`: Added `--summary` flag (`-s` shorthand) with income/spending/net calculation
+- `test/commands/transactions.test.ts`: Added 2 tests for the new flag
+
+**Build/Test results**:
+- Build: ✅ Passed
+- Lint: ✅ Passed
+- Tests: ✅ 297 passing (including 2 new tests)
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 10
+
+**Completed:** 2026-02-04 10:45:41  
+**Attempts:** 1  
+**Log file:** `task_010_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+## Summary
+
+I added the `endofthisweek` date shortcut to complement the existing week-based shortcuts. This is a small, high-impact improvement that:
+
+**Changes Made:**
+1. **`src/utils/date.ts`**: Added `endofthisweek` shortcut that returns the upcoming Sunday (or today if it's Sunday), consistent with how `endoflastweek` works
+2. **`src/commands/transactions.ts`**: Added an example showing the new shortcut: `--since thisweek --until endofthisweek` for a full week query
+3. **`test/utils/date.test.ts`**: Added 2 tests for the new shortcut (normal and case-insensitive)
+
+**Why This Matters:**
+- Completes the week-based date shortcut pattern (previously had `thisweek`, `lastweek`, `endoflastweek` but was missing `endofthisweek`)
+- Enables queries like "all transactions for the full current week" using `--since thisweek --until endofthisweek`
+- Follows existing patterns and conventions exactly
+- Zero risk of breaking changes - purely additive
+
+**Verification:**
+- Build passes
+- All 299 tests pass (297 existing + 2 new)
+- Lint passes
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 11
+
+**Completed:** 2026-02-04 10:48:45  
+**Attempts:** 1  
+**Log file:** `task_011_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The fix is complete. The code now correctly:
+1. Outputs `0` for `--count` (integer count)
+2. Outputs `0.00` for `--total` (currency format with 2 decimal places)
+
+This matches the expected behavior when there are results (line 231 uses `total.toFixed(NZD_DECIMAL_PLACES)`).
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 12
+
+**Completed:** 2026-02-04 10:53:13  
+**Attempts:** 1  
+**Log file:** `task_012_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+## Summary
+
+I fixed **inconsistent currency formatting** across the codebase. The CLI already had a well-implemented `formatCurrency()` function in `src/utils/output.ts` that properly formats currency with:
+- NZ locale formatting with thousands separators (e.g., `$1,234.56`)
+- Correct handling of negative amounts (`-$99.50`)
+- Consistent 2 decimal places
+
+However, several files were using manual `.toFixed(2)` formatting instead, which:
+- Missed thousands separators (e.g., showing `$1234.56` instead of `$1,234.56`)
+- Used inconsistent patterns (e.g., `$${amount.toFixed(2)}`)
+
+### Changes made:
+
+1. **`src/commands/transfer.ts`**:
+   - Added import for `formatCurrency`
+   - Line 134: Error message now uses `formatCurrency(amount)` and `formatCurrency(maxAmount)`
+   - Line 235: Transfer summary amount now uses `formatCurrency(summary.amount)`
+
+2. **`src/commands/accounts.ts`**:
+   - Added import for `formatCurrency`
+   - Line 91: Loan repayment amount now uses `formatCurrency()`
+   - Line 93: KiwiSaver returns now uses `formatCurrency()`
+   - Line 172: Total balance summary now uses `formatCurrency()`
+
+3. **`src/commands/categorise.ts`**:
+   - Added import for `formatCurrency`
+   - Line 129: Transaction amount display now uses `formatCurrency()`
+
+This makes all user-facing currency output consistent across the CLI, which is especially noticeable for amounts over $1,000 where thousands separators improve readability.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 13
+
+**Completed:** 2026-02-04 10:57:29  
+**Attempts:** 1  
+**Log file:** `task_013_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All emoji characters have been removed from the transfer command. The changes are:
+
+1. **Error messages**: Replaced `⚠️` prefix with plain text ("SAFETY REQUIRED:", "Invalid destination...", etc.)
+2. **Dry run mode**: Changed `🔍 DRY RUN MODE` to `[DRY RUN]`
+3. **Transfer summary**: Changed `📋 TRANSFER SUMMARY` to plain `TRANSFER SUMMARY`
+4. **Transfer execution**: Removed `💸` from "Executing transfer..."
+5. **Status messages**:
+   - Removed `✅` from "Transfer completed successfully"
+   - Removed `❌` from error/declined messages
+   - Removed `⏳` from timeout message
+   - Removed `⚠️` from paused status
+6. **Confirmation prompt**: Changed `⚠️` to `WARNING:`
+7. **Summary borders**: Changed Unicode `━` to ASCII `-` for better terminal compatibility
+
+All 299 tests pass, the build succeeds, and lint passes.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 14
+
+**Completed:** 2026-02-04 11:02:40  
+**Attempts:** 1  
+**Log file:** `task_014_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All tasks completed successfully. Here's a summary of the improvement:
+
+## Summary
+
+**Improvement:** Show cache age when displaying cached data
+
+Previously, when the CLI used cached data, it would simply show `(using cached data)`. This didn't tell users how stale the cache might be, which is important for financial data.
+
+**Changes made:**
+
+1. **Added `formatCacheAge()` utility** (`src/utils/output.ts`):
+   - Returns human-readable cache age like `(using cached data from 45m ago)` or `(using cached data from 2h ago)`
+   - Handles edge cases: null input, invalid dates
+   - Shows appropriate units: minutes, hours, or days
+
+2. **Updated CacheService** (`src/services/cache.service.ts`):
+   - Modified `getAccountsWithCache()` and `getTransactionsWithCache()` to return `cacheAge` timestamp alongside `fromCache` boolean
+
+3. **Updated all commands that use cache**:
+   - `accounts.ts` - Shows cache age in table format
+   - `transactions.ts` - Shows cache age in table format
+   - `categories.ts` - Shows cache age
+   - `overview.ts` - Shows cache age in the dashboard header
+
+4. **Added 10 unit tests** for the new `formatCacheAge()` function covering:
+   - Null input handling
+   - Just now, minutes, hours, and days formatting
+   - Edge cases at time boundaries (59m→60m, 23h→24h)
+   - Invalid date string handling
+
+**Impact:**
+- Users now see exactly how old their cached data is
+- Helps users make informed decisions about whether to use `--refresh`
+- More professional CLI UX - transparent about data freshness
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 15
+
+**Completed:** 2026-02-04 11:07:09  
+**Attempts:** 1  
+**Log file:** `task_015_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All checks pass. Here's a summary of the improvements made:
+
+## Summary of Changes
+
+**Problem**: Users could specify both `--days` and `--since` flags without realizing that `--days` silently overrides `--since`. This could lead to unexpected results and confusion.
+
+**Solution**: Added proactive UX improvements to make the CLI behave more transparently:
+
+### 1. Warning when conflicting flags are provided
+- Modified `parseDateRange()` in `src/utils/date.ts` to accept an optional `onWarning` callback
+- When both `--days` and `--since` are provided, the callback is invoked with a clear message explaining which flag takes precedence
+
+### 2. Updated help text
+- Changed the `--days` flag description in `src/utils/flags.ts` from:
+  `"Number of days to look back (default: N)"`
+  to:
+  `"Number of days to look back (default: N). Overrides --since if both provided."`
+
+### 3. Integrated warning into commands
+- Updated `transactions.ts`, `categories.ts`, and `overview.ts` to pass the warning callback (respecting `--quiet` mode)
+
+### 4. Added unit tests
+- Added 3 new tests in `test/utils/date.test.ts` to verify:
+  - Warning callback is invoked when both flags provided
+  - Warning callback is NOT invoked when only `--days` is provided
+  - Warning callback is NOT invoked when only `--since` is provided
+
+**Files modified**:
+- `src/utils/date.ts` - Added `onWarning` callback support
+- `src/utils/flags.ts` - Updated help text
+- `src/commands/transactions.ts` - Pass warning callback
+- `src/commands/categories.ts` - Pass warning callback  
+- `src/commands/overview.ts` - Pass warning callback
+- `test/utils/date.test.ts` - Added 3 new tests
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 16
+
+**Completed:** 2026-02-04 11:10:10  
+**Attempts:** 1  
+**Log file:** `task_016_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The improvement has been successfully implemented:
+
+**Change Summary:**
+1. **Added same-account transfer validation** in `/src/commands/transfer.ts` - The transfer command now checks if the source account's `formatted_account` matches the destination account number before attempting a transfer. If they match, it displays a clear error message: "Source and destination accounts are identical. Cannot transfer funds to the same account."
+
+2. **Added test for safety flag requirement** in `/test/commands/transfer.test.ts` - Added a new test case that verifies the transfer command requires either `--confirm` or `--dry-run` flag for safety, ensuring the safety mechanism is properly tested.
+
+This is a high-impact safety improvement because:
+- It prevents users from accidentally initiating a pointless transfer to the same account
+- It catches the error early with a clear message before wasting API calls
+- It follows the existing pattern of safety checks in the transfer command (allowlist, amount validation, etc.)
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 17
+
+**Completed:** 2026-02-04 11:15:05  
+**Attempts:** 1  
+**Log file:** `task_017_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All checks pass. Here's a summary of the change:
+
+## Summary
+
+Added a `--merchants` flag to the `transactions` command that lists unique merchants from matching transactions, sorted alphabetically.
+
+### Changes Made:
+
+1. **`src/commands/transactions.ts`**:
+   - Added `--merchants` flag (boolean) with description: "List unique merchants from matching transactions (sorted alphabetically)"
+   - Updated mutually exclusive flag validation to include `--merchants` alongside `--count` and `--total`
+   - Added handling that outputs merchants alphabetically, one per line, with a count summary
+   - Updated the "tips" message for empty results to use the new `--merchants` flag instead of the jq workaround
+   - Added two examples in the command help
+
+2. **`test/commands/transactions.test.ts`**:
+   - Updated the test for mutually exclusive flags to cover all combinations
+   - Added test for `--merchants` flag
+
+### Why This Matters:
+
+- **Discoverability**: Users previously had to pipe through jq (`bank transactions --format json | jq -r ".[].merchant" | sort -u`) to see available merchants. Now it's `bank transactions --merchants`
+- **No external dependencies**: Works without jq installed
+- **Composable**: Works with all existing filters (e.g., `--parentCategory "Utilities" --merchants` to see merchants in a category)
+- **Scriptable**: Output is one merchant per line (use `--quiet` to suppress the count summary)
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 18
+
+**Completed:** 2026-02-04 11:17:48  
+**Attempts:** 1  
+**Log file:** `task_018_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The fix is in place. The change is minimal and targeted:
+
+**What was fixed:**
+- `src/commands/categories.ts:38-39`: Changed `resolveFormat(flags.format, 'table')` to `resolveFormat(flags.format)`, which now properly falls back to the user's configured default format (via `configService.get('format')`) instead of always defaulting to 'table'.
+
+**Why this matters:**
+- Before: Users who set their preferred format (e.g., `bank settings set format csv`) would see that preference ignored by the `categories` command
+- After: The `categories` command respects the same format resolution as all other commands
+
+**Build and tests:** All 314 tests pass, linting passes, and the project builds successfully.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 19
+
+**Completed:** 2026-02-04 11:23:13  
+**Attempts:** 1  
+**Log file:** `task_019_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All 316 tests pass and the build is clean. Let me provide a summary of what was implemented:
+
+## Summary
+
+I've added a **period-over-period comparison feature** to the `overview` command. This is a high-impact UX improvement that makes the financial dashboard feel "smart" by showing users how their current spending compares to the previous period.
+
+### Changes Made:
+
+**`src/commands/overview.ts`:**
+- Added `--compare` flag that enables period comparison
+- Added `formatChange()` helper method that formats percentage changes with:
+  - Trend arrows (↑ for increase, ↓ for decrease)
+  - Color coding (green for good changes, red for bad changes)
+  - Smart handling of edge cases (no previous data shows "new", zero change shows "~0%")
+- Added `getPreviousPeriod()` helper to calculate the comparison period dates
+- When `--compare` is enabled:
+  - Fetches transactions from the previous period (same length, immediately before)
+  - Shows percentage changes next to income, spending, and net
+  - Shows percentage changes for each top spending category
+- Added examples in the help text
+
+**`test/commands/overview.test.ts`:**
+- Added tests for `--compare` flag
+- Added tests for `--compare` with `--since` flag
+
+### Example Usage:
+```bash
+bank overview --compare               # Compare last 30 days with previous 30 days
+bank overview --since thismonth --compare  # This month vs last month
+bank overview --since thisweek --compare   # This week vs last week
+```
+
+### Example Output (with --compare):
+```
+  THIS PERIOD (2026-01-05 to 2026-02-04, 30 days)
+
+  Income:    $5,000.00  ↑12%
+  Spending:  -$3,200.00  ↓8%
+  Net:       $1,800.00  ↑25%
+
+  TOP SPENDING
+  ████████████████████ $1,200  food  ↑15%
+  ████████████░░░░░░░░   $800  utilities  ↓5%
+  ██████████░░░░░░░░░░   $600  transport  new
+```
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 20
+
+**Completed:** 2026-02-04 11:26:58  
+**Attempts:** 1  
+**Log file:** `task_020_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The changes I made are merged with pre-existing changes. Let me show a summary of what I specifically added:
+
+**Summary of my changes:**
+
+1. **New tests for combined filter scenarios** in `test/services/transaction-processing.service.test.ts`:
+   - `combines direction "out" with amount filters to find spending in a range`
+   - `combines direction "in" with amount filters to find income in a range`
+   - `combines direction with merchant and amount filters`
+   - `combines direction with category and amount filters`
+
+2. **Improved flag descriptions** in `src/commands/transactions.ts`:
+   - `minAmount`: "Minimum transaction amount (filters by magnitude, e.g., 50 matches both -$50 and +$50)"
+   - `maxAmount`: "Maximum transaction amount (filters by magnitude, e.g., 100 matches both -$100 and +$100)"
+   - `direction`: Now includes "Combine with --minAmount/--maxAmount to find transactions in a specific range."
+
+3. **New example** in help text:
+   - `--direction out --minAmount 50 --maxAmount 200  # Spending between $50-$200`
+
+All 320 tests pass and linting is clean. The changes improve clarity for users wanting to filter transactions by amount range within a specific direction (spending or income), which is a common use case.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 21
+
+**Completed:** 2026-02-04 11:32:07  
+**Attempts:** 1  
+**Log file:** `task_021_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The implementation is complete. Here's a summary of the changes:
+
+## Summary of Changes
+
+**Feature Added: `--names` flag for the `accounts` command**
+
+This improvement adds a new `--names` flag to the `accounts` command that outputs account names only (one per line), making it useful for:
+- Scripting and automation
+- Piping to other tools (e.g., `bank accounts --names | fzf`)
+- Shell autocompletion
+- Quick account listing without balance details
+
+**Changes Made:**
+
+1. **`src/commands/accounts.ts`:**
+   - Added `--names` flag definition (lines 46-49)
+   - Added example usage in command help (line 26)
+   - Added validation to prevent using `--total` and `--names` together (lines 57-60)
+   - Added logic to output account names when `--names` is used (lines 178-188)
+   - Updated empty results handling for `--names` flag (lines 149-152)
+
+2. **`test/commands/accounts.test.ts`:**
+   - Added 3 new tests:
+     - `handles --names flag`
+     - `handles --names with type filter`
+     - `rejects --total and --names together`
+
+**Design Considerations:**
+- Follows the existing pattern from `--merchants` flag on the transactions command
+- Supports filtering with `--type` to get names of specific account types
+- Shows a count summary unless `--quiet` is used
+- Outputs empty/nothing when no accounts match (not an error)
+- Mutually exclusive with `--total` since they serve different purposes
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 22
+
+**Completed:** 2026-02-04 11:36:05  
+**Attempts:** 1  
+**Log file:** `task_022_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All checks pass. Let me provide a summary of the change:
+
+## Summary
+
+Added `endofthisquarter` and `endoflastquarter` date shortcuts to complement the existing `thisquarter` and `lastquarter` shortcuts. This enables users to easily query complete quarters for financial reporting.
+
+**Changes made:**
+1. **`src/utils/date.ts`**: Added two new date shortcuts:
+   - `endofthisquarter` - returns the last day of the current quarter
+   - `endoflastquarter` - returns the last day of the previous quarter
+   
+2. **`test/utils/date.test.ts`**: Added 4 new tests covering the new shortcuts and case insensitivity
+
+**User benefit:**
+Users can now easily query complete quarters:
+```bash
+# Complete last quarter
+bank transactions --since lastquarter --until endoflastquarter
+
+# Complete current quarter (for reporting at quarter end)
+bank transactions --since thisquarter --until endofthisquarter
+```
+
+This follows the existing pattern (`endoflastmonth`, `endofthismonth`, `endoflastweek`, `endofthisweek`) and provides parity between month/week/quarter date shortcuts.
+
+**Test results:**
+- Build: ✅ Clean
+- Tests: ✅ 327 passing (including 4 new tests)
+- Lint: ✅ No errors
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 23
+
+**Completed:** 2026-02-04 11:39:45  
+**Attempts:** 1  
+**Log file:** `task_023_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The fix is working correctly:
+- `-s` is now correctly mapped to `--since` (the date filter)
+- `--summary` no longer has a short flag (which avoids the collision)
+
+The help output clearly shows:
+- `-s, --since=<value>` for the date filter
+- `--summary` (no short flag) for the spending summary
+
+This is a **correctness fix** that prevents a real bug where users typing `bank transactions -s` might get unexpected behavior due to the flag collision.
+
+## Summary
+
+**Fixed: Flag collision in transactions command**
+
+The `transactions` command had a bug where both `--since` (date filter) and `--summary` (spending summary) were assigned the `-s` short flag. This caused ambiguous behavior where oclif would silently pick one flag over the other.
+
+**Changes made:**
+1. `src/commands/transactions.ts`: Removed `char: 's'` from the `summary` flag definition
+2. `test/commands/transactions.test.ts`: Updated test name and behavior to correctly reflect that `-s` is the shorthand for `--since` (date filter)
+
+**Impact:**
+- Users can now reliably use `-s thismonth` as shorthand for `--since thismonth`
+- `--summary` must be typed in full (which is reasonable for an optional summary feature)
+- No backwards compatibility concerns since the previous behavior was undefined/buggy
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 24
+
+**Completed:** 2026-02-04 11:43:09  
+**Attempts:** 1  
+**Log file:** `task_024_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+I've successfully added a user-friendly improvement to the banking CLI. Here's a summary of the change:
+
+## Change Summary
+
+**Added natural language "N days/weeks/months ago" date syntax support**
+
+Users can now use more natural date expressions in commands like:
+- `bank transactions --since "7 days ago"`
+- `bank transactions --since "2 weeks ago"`
+- `bank transactions --since "3 months ago"`
+- `bank overview --since "1 week ago"`
+
+This complements the existing shorthand syntax (`7d`, `2w`, `3m`) with a more readable alternative that users might naturally try when first using the CLI.
+
+**Changes made:**
+1. `src/utils/date.ts` - Added parsing for "N days ago", "N weeks ago", and "N months ago" patterns (case-insensitive)
+2. `test/utils/date.test.ts` - Added 12 new test cases covering the new syntax
+
+**Why this matters:**
+- Makes the CLI feel more intuitive and "pro"
+- Supports natural language that users might instinctively try
+- No breaking changes - existing syntax continues to work
+- Minimal code addition (~24 lines of parsing logic)
+- Well-tested with comprehensive edge case coverage
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 25
+
+**Completed:** 2026-02-04 11:49:05  
+**Attempts:** 1  
+**Log file:** `task_025_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All checks pass. Here's a summary of the changes made:
+
+## Changes Summary
+
+### Feature: Added `--account` filter to `categories` and `overview` commands
+
+This improvement adds consistency across commands by allowing users to filter spending analysis and financial overview to a specific account. Previously, only the `transactions` command supported this filter.
+
+**Files modified:**
+
+1. **`src/commands/categories.ts`**
+   - Added `--account` / `-a` flag to filter spending by account
+   - Added account fetching when filter is specified
+   - Added account name resolution (by ID or partial name match)
+   - Shows filtered account name when active
+   - Added example in command help
+
+2. **`src/commands/overview.ts`**
+   - Added `--account` / `-a` flag to filter overview to specific account
+   - Filters both current and previous period transactions (for `--compare`)
+   - Shows account name in header when filtering
+   - Added example in command help
+
+3. **`test/commands/categories.test.ts`**
+   - Added test for account filter flag
+
+4. **`test/commands/overview.test.ts`**
+   - Added test for account filter flag
+   - Added test for account filter combined with `--compare` flag
+
+**User benefit:**
+- Users can now analyze spending by category for a specific account: `bank categories --account "Everyday"`
+- Users can see a financial overview for a single account: `bank overview --account "Savings" --compare`
+- Consistent flag behavior across `transactions`, `categories`, and `overview` commands
+
+**Tests:** 340 passing (3 new)
+**Build:** Clean
+**Lint:** Clean
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 26
+
+**Completed:** 2026-02-04 11:52:29  
+**Attempts:** 1  
+**Log file:** `task_026_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The change has been successfully implemented. Let me summarize what was done:
+
+## Summary of Changes
+
+**File Modified:** `src/commands/query.ts` (lines 307-324)
+
+**Problem:** When a saved query returned no results, the message was minimal and unhelpful:
+```
+No transactions found for query "groceries" in the specified date range.
+```
+
+**Solution:** Updated the empty result handling to provide a much more helpful UX, matching the pattern used in the `transactions` command:
+
+1. **Shows the date range** that was searched
+2. **Lists all filters** that were applied (merchant, category, amount, direction, etc.)
+3. **Provides actionable tips:**
+   - Suggests trying a wider date range with the exact command
+   - Shows how to view query details
+
+**Example of new output:**
+```
+  No transactions found for query "groceries".
+  Date range: 2025-01-05 to 2025-02-04
+
+  Filters: merchant="Countdown,Pak N Save", parentCategory="food"
+
+  Tips:
+    - Try a wider date range: bank query run groceries --since 3m
+    - View query details: bank query show groceries
+```
+
+This change:
+- Is **user-facing** and directly improves CLI UX
+- Is **small and reviewable** (25 lines changed)
+- Has **no breaking changes**
+- **Follows existing patterns** from the `transactions` command
+- **All tests pass** (340 tests)
+- **Lint passes**
+- **Build succeeds**
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 27
+
+**Completed:** 2026-02-04 11:57:36  
+**Attempts:** 1  
+**Log file:** `task_027_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All 343 tests pass and linting succeeds.
+
+## Summary of Changes
+
+I added a new `--top` flag to the `transactions` command that shows the top N merchants by spending amount. This is a valuable feature for users who want to quickly see where their money is going.
+
+**Changes made:**
+
+1. **`src/commands/transactions.ts`**:
+   - Added `--top` flag (integer) to show top N merchants by spending
+   - Added validation for `--top` value (must be at least 1)
+   - Updated mutually exclusive flag validation to include `--top`
+   - Added logic to aggregate spending by merchant and display top N with formatted amounts
+   - Added 2 new examples demonstrating the feature
+
+2. **`test/commands/transactions.test.ts`**:
+   - Updated existing test for mutually exclusive flags to include `--top` combinations
+   - Added 3 new tests:
+     - `handles --top flag` - verifies basic functionality
+     - `rejects --top value of 0` - validates input
+     - `rejects negative --top value` - validates input
+
+**Feature behavior:**
+- `bank transactions --days 30 --top 10` shows the top 10 merchants by spending amount with aligned formatting
+- Works with other filters (e.g., `--direction out`, `--since`, `--parentCategory`)
+- Shows a summary of total spending for the displayed merchants (unless `--quiet`)
+- Mutually exclusive with `--count`, `--total`, and `--merchants` flags
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 28
+
+**Completed:** 2026-02-04 12:03:42  
+**Attempts:** 1  
+**Log file:** `task_028_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All changes have been successfully implemented and verified. Here's a summary of the improvements made:
+
+## Summary of Changes
+
+### 1. New `--stats` Flag for Transactions Command
+**File:** `src/commands/transactions.ts`
+
+Added a `--stats` flag that provides a quick statistical summary without listing all transactions:
+- Transaction count
+- Income, spending, and net totals
+- Average, min, and max transaction amounts
+- Date range of data
+- Count of unique merchants and categories
+
+This is a high-impact UX improvement for power users who want quick insights without scrolling through transaction lists.
+
+### 2. Fixed Merchant Name Normalization Bug
+**Files:** 
+- `src/services/merchant-mapping.service.ts` - Added exported `normaliseMerchantName()` function
+- `src/services/transaction-processing.service.ts` - Now uses normalized lookup keys
+- `src/commands/categorise.ts` - Uses shared normalization function
+
+**Problem:** The `categorise` command saved merchant mappings with normalized keys (lowercase, special chars replaced), but the `transaction-processing.service` looked up mappings using raw merchant names from the API. This caused lookups to fail silently.
+
+**Solution:** Centralized the normalization logic in `merchant-mapping.service.ts` and used it consistently in both saving (categorise) and lookup (transaction-processing) operations.
+
+### 3. Updated Tests
+**File:** `test/commands/transactions.test.ts`
+- Added tests for `--stats` flag
+- Added tests for mutual exclusivity with other output flags
+- Updated error message expectations
+
+**File:** `test/services/transaction-processing.service.test.ts`
+- Updated merchant mapping tests to use normalized keys
+- Tests now properly verify the normalized lookup behavior
+
+### Verification
+- Build: ✅ Passes
+- Lint: ✅ Passes  
+- Tests: ✅ 348 tests passing
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 29
+
+**Completed:** 2026-02-04 12:06:20  
+**Attempts:** 1  
+**Log file:** `task_029_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The change I made improves the UX of the `transactions` command by properly handling empty results for the `--merchants`, `--top`, and `--stats` flags:
+
+**Before:**
+- `--merchants` with no results: outputs `'0'` (confusing - no merchants exist but outputs a number)
+- `--top N` with no results: silent failure (outputs nothing)
+- `--stats` with no results: silent failure (outputs nothing)
+
+**After:**
+- `--merchants` with no results: outputs `(0 unique merchants)` in normal mode, `0` in quiet mode
+- `--top N` with no results: outputs `No merchants to rank - no transactions found.` (or nothing in quiet mode)
+- `--stats` with no results: shows full statistics table with zeroes and the queried date range - users see what they asked for and understand no data was found
+
+This is a small but high-impact improvement because:
+1. Users no longer get silent failures from `--top` and `--stats` commands
+2. The output is predictable and useful (shows zeroed stats rather than nothing)
+3. Scriptable behavior is preserved (`--quiet` mode maintains machine-readable output)
+4. The date range in empty `--stats` output helps users understand what was searched
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 30
+
+**Completed:** 2026-02-04 12:16:35  
+**Attempts:** 1  
+**Log file:** `task_030_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All 357 tests pass. Here's a summary of what was implemented:
+
+## Summary
+
+I added **merchant mapping export/import functionality** to the `settings` command. This is a high-impact user-facing feature that:
+
+### New Commands
+- `bank settings export-merchants` - Export to stdout (for piping: `bank settings export-merchants > backup.json`)
+- `bank settings export-merchants <file>` - Export directly to a file
+- `bank settings import-merchants <file>` - Import from a JSON file (replaces existing mappings)
+- `bank settings import-merchants <file> -m` - Merge with existing mappings
+- `bank settings import-merchants <file> -y` - Skip confirmation prompt
+
+### User Benefits
+1. **Backup/Restore**: Users can back up their painstaking categorization work
+2. **Sharing**: Users can share configurations between machines or with others
+3. **Bulk Editing**: Export → edit JSON in text editor → import back
+4. **Safety**: Confirmation prompts before destructive operations
+
+### Technical Details
+- JSON validation ensures imported data has correct structure (`parent` and `category` strings)
+- Merge mode (`-m`) allows incremental updates without losing existing mappings
+- Error messages are helpful and actionable
+- 9 new tests added for the functionality
+- Fixed a pre-existing test isolation bug in the transaction processing tests
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 31
+
+**Completed:** 2026-02-04 12:23:08  
+**Attempts:** 1  
+**Log file:** `task_031_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All checks pass. Here's a summary of the improvement I made:
+
+## Summary: Cache Corruption Detection & User Feedback
+
+### Problem
+When cache files become corrupted (disk error, truncated file, invalid JSON), the cache service silently fell back to empty cache. Users experienced slower performance without understanding why their cache wasn't working.
+
+### Solution
+Added cache corruption detection with user-facing warnings:
+
+**1. CacheService (`src/services/cache.service.ts`)**
+- Added `hadLoadError` public property to track load failures
+- Added `loadErrorMessage` property to store error details
+- Added `getLoadErrorMessage()` method for diagnostics
+- Both `loadTransactionCache()` and `loadAccountCache()` now set these on parse errors
+
+**2. Shared utility (`src/utils/flags.ts`)**
+- Added `warnIfCacheCorrupted()` helper function (mirrors existing `warnIfConfigCorrupted()`)
+- Displays: `Warning: Cache file is corrupted or unreadable. Run 'bank cache clear' to reset.`
+
+**3. Commands updated to show warnings**
+- `accounts.ts` - warns after cache operations
+- `transactions.ts` - warns after cache operations  
+- `categories.ts` - warns after cache operations
+- `overview.ts` - warns after cache operations
+- `cache.ts` - shows detailed error in `bank cache info`
+
+**4. Tests (`test/services/cache.service.test.ts`)**
+- Added design tests documenting the expected error tracking behavior
+
+### User Impact
+- Users now see a clear warning when their cache is broken
+- The warning includes actionable advice: `Run 'bank cache clear' to reset`
+- `bank cache info` shows detailed error messages for debugging
+- Respects `--quiet` flag (no warnings in quiet mode)
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 32
+
+**Completed:** 2026-02-04 12:28:09  
+**Attempts:** 1  
+**Log file:** `task_032_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All tests pass and lint is clean.
+
+**Summary of changes made:**
+
+1. **Added `endofthisyear` date shortcut** in `src/utils/date.ts` - Returns December 31st of the current year
+2. **Added `endoflastyear` date shortcut** in `src/utils/date.ts` - Returns December 31st of the previous year  
+3. **Updated documentation** in the `tryParseDateShortcut` and `parseDate` function docstrings
+4. **Updated the `--until` flag description** in `src/utils/flags.ts` to mention the new shortcuts
+5. **Added 4 new tests** in `test/utils/date.test.ts` for the new shortcuts (including case-insensitivity tests)
+
+**Why this is a high-impact improvement:**
+- Completes the date shortcut vocabulary - users can now do `--since lastyear --until endoflastyear` for annual reports
+- Follows the established pattern for week/month/quarter shortcuts
+- Enables common use cases like year-end financial summaries
+- Zero breaking changes - purely additive
+- Small, focused change that earns its complexity
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 33
+
+**Completed:** 2026-02-04 12:31:57  
+**Attempts:** 1  
+**Log file:** `task_033_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+I've made a high-impact UX improvement to the banking CLI:
+
+**Feature Added: Daily Spending Rate Indicator**
+
+The `overview` command now shows users their daily spending rate and whether they're on track for the period:
+
+- **Daily avg**: Shows the average daily spending for the period (e.g., `$85.42/day`)
+- **Pace indicator**: 
+  - **green "on pace"** - spending at or below expected rate
+  - **yellow "slightly over"** - up to 20% over expected
+  - **red "over pace"** - more than 20% over expected rate
+
+This feature:
+1. Only appears for multi-day periods with spending (not for single-day views)
+2. Only shows the pace indicator when viewing current/in-progress periods (not historical)
+3. Uses color-coding for instant visual feedback
+4. Helps users understand if their spending velocity is sustainable
+
+Example output:
+```
+  THIS PERIOD (2024-01-01 to 2024-01-31, 31 days)
+
+  Income:    $4,500.00
+  Spending:  -$2,650.00
+  Net:       $1,850.00
+  Daily avg: $85.48/day  on pace
+```
+
+All 363 tests pass, and the build and lint succeed.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 34
+
+**Completed:** 2026-02-04 12:37:21  
+**Attempts:** 1  
+**Log file:** `task_034_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+All checks pass. Let me provide a summary of the changes made:
+
+## Summary
+
+I've added a **declarative utility for validating mutually exclusive CLI flags** (`checkMutuallyExclusiveFlags`) that improves:
+
+### Changes Made
+
+1. **`src/utils/flags.ts`** - Added new `checkMutuallyExclusiveFlags()` utility function:
+   - Takes an array of `[flagName, flagValue]` tuples
+   - Returns `null` if 0 or 1 flags are set (valid)
+   - Returns a human-readable error message if multiple flags are set
+   - Handles different value types correctly (booleans, numbers, strings, undefined/null)
+   - Generates specific error messages for the exact flags in conflict (better UX than a generic list)
+   - Uses proper Oxford comma formatting for 3+ flags
+
+2. **`src/commands/transactions.ts`** - Refactored to use the new utility:
+   - Replaced manual flag counting/validation with declarative `checkMutuallyExclusiveFlags()`
+   - Now shows specific errors like "Cannot use --count and --total together" instead of listing all 5 flags
+
+3. **`src/commands/accounts.ts`** - Refactored to use the new utility:
+   - Same pattern as transactions, cleaner code
+
+4. **`test/utils/flags.test.ts`** - Added comprehensive test suite (14 tests):
+   - Tests for 0, 1, 2, 3, 4+ flags
+   - Tests for numeric flags (like `--top`) where `undefined` vs `0` matters
+   - Tests for boolean, string, null, empty string handling
+   - Tests for flag name prefix normalization
+
+5. **`test/commands/transactions.test.ts`** - Updated tests to match improved error messages:
+   - Tests now expect specific flag names in error messages rather than a generic list
+
+### Benefits
+
+- **Better UX**: Users see exactly which flags conflict, not a confusing list of all possible flags
+- **DRY**: Eliminates repetitive manual flag validation code across commands
+- **Maintainable**: Adding new mutually exclusive flags is now declarative and readable
+- **Well-tested**: 14 new unit tests cover edge cases
+- **Consistent**: Pattern can be easily adopted by other commands
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 35
+
+**Completed:** 2026-02-04 12:42:18  
+**Attempts:** 1  
+**Log file:** `task_035_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+The feature is implemented correctly. Let me provide a summary of the change:
+
+## Summary
+
+I added a new `--topCategories` flag to the `transactions` command that shows the top N spending categories, similar to the existing `--top` flag for merchants.
+
+### Changes Made:
+
+1. **`src/commands/transactions.ts`**:
+   - Added `--topCategories` flag definition with integer type
+   - Added validation to reject values less than 1
+   - Added to mutually exclusive flags check (can't be combined with `--count`, `--total`, `--merchants`, `--top`, or `--stats`)
+   - Implemented handler that aggregates spending by parent category (excluding transfers and income)
+   - Added two usage examples to the help text
+
+2. **`test/commands/transactions.test.ts`**:
+   - Added 6 new tests for the feature:
+     - Basic functionality test
+     - Validation test for value of 0
+     - Validation test for negative values
+     - Mutual exclusion tests with `--top`, `--count`, and `--stats`
+
+### Usage Examples:
+```bash
+# Show top 5 spending categories over last 30 days
+bank transactions --days 30 --topCategories 5
+
+# Show top 3 categories this month
+bank transactions --since thismonth --topCategories 3
+```
+
+The output is formatted consistently with the `--top` flag for merchants, showing category names aligned with their total spending amounts.
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 36
+
+**Completed:** 2026-02-04 12:48:01  
+**Attempts:** 1  
+**Log file:** `task_036_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+**Summary of Changes:**
+
+I refactored the `formatOutput` utility to accept an optional logger parameter, enabling proper oclif integration across all commands. This is a code quality improvement that:
+
+1. **Added `Logger` type** in `src/utils/output.ts` - A typed function signature for output loggers
+2. **Updated `formatOutput` signature** - Now accepts `log: Logger = console.log` as third parameter
+3. **Propagated logger through all internal helpers** - All 12 internal formatting functions now use the injected logger
+4. **Updated 4 commands** to pass `this.log.bind(this)`:
+   - `src/commands/transactions.ts`
+   - `src/commands/accounts.ts`
+   - `src/commands/categories.ts`
+   - `src/commands/query.ts`
+
+**Benefits:**
+- **Backward compatible** - Defaults to `console.log` so existing code and tests work unchanged
+- **Proper oclif integration** - Commands now use oclif's `this.log` for consistent output handling
+- **Testability** - Output can be captured via mock loggers
+- **Separation of concerns** - Formatting logic no longer controls where output goes
+
+SUCCESS
+```
+
+</details>
+
+---
+
+## Task 37
+
+**Completed:** 2026-02-04 12:53:53  
+**Attempts:** 1  
+**Log file:** `task_037_attempt_001.txt`
+
+<details>
+<summary>Click to expand output</summary>
+
+```
+I've completed the first improvement. Here's a summary of what was done:
+
+## Changes Made
+
+**Created shared masking utility (`src/utils/mask.ts`):**
+- `maskSensitiveValue()` - masks tokens/sensitive strings, showing first/last 4 chars for values ≥9 characters
+- `maskAccountNumber()` - specialized masking for NZ bank account numbers (BB-****-*******-SS format)
+
+**Updated commands to use shared utility:**
+- `src/commands/settings.ts` - now imports from `utils/mask.js`
+- `src/commands/transfer.ts` - removed duplicate private methods, now imports from `utils/mask.js`
+
+**Added comprehensive tests (`test/utils/mask.test.ts`):**
+- 15 test cases covering edge cases (empty string, boundary lengths, various formats)
+
+**Benefits:**
+- DRY principle: single source of truth for masking logic
+- Easier to maintain and fix bugs in one place
+- Consistent masking behavior across the CLI
+- Better test coverage for masking functions
+
+SUCCESS
+```
+
+</details>
+
+---
+

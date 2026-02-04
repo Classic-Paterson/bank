@@ -1,0 +1,27 @@
+All 357 tests pass. Here's a summary of what was implemented:
+
+## Summary
+
+I added **merchant mapping export/import functionality** to the `settings` command. This is a high-impact user-facing feature that:
+
+### New Commands
+- `bank settings export-merchants` - Export to stdout (for piping: `bank settings export-merchants > backup.json`)
+- `bank settings export-merchants <file>` - Export directly to a file
+- `bank settings import-merchants <file>` - Import from a JSON file (replaces existing mappings)
+- `bank settings import-merchants <file> -m` - Merge with existing mappings
+- `bank settings import-merchants <file> -y` - Skip confirmation prompt
+
+### User Benefits
+1. **Backup/Restore**: Users can back up their painstaking categorization work
+2. **Sharing**: Users can share configurations between machines or with others
+3. **Bulk Editing**: Export → edit JSON in text editor → import back
+4. **Safety**: Confirmation prompts before destructive operations
+
+### Technical Details
+- JSON validation ensures imported data has correct structure (`parent` and `category` strings)
+- Merge mode (`-m`) allows incremental updates without losing existing mappings
+- Error messages are helpful and actionable
+- 9 new tests added for the functionality
+- Fixed a pre-existing test isolation bug in the transaction processing tests
+
+SUCCESS

@@ -1,31 +1,17 @@
-All 157 tests pass and linting is clean.
+All emoji characters have been removed from the transfer command. The changes are:
 
-## Summary of Changes
+1. **Error messages**: Replaced `⚠️` prefix with plain text ("SAFETY REQUIRED:", "Invalid destination...", etc.)
+2. **Dry run mode**: Changed `🔍 DRY RUN MODE` to `[DRY RUN]`
+3. **Transfer summary**: Changed `📋 TRANSFER SUMMARY` to plain `TRANSFER SUMMARY`
+4. **Transfer execution**: Removed `💸` from "Executing transfer..."
+5. **Status messages**:
+   - Removed `✅` from "Transfer completed successfully"
+   - Removed `❌` from error/declined messages
+   - Removed `⏳` from timeout message
+   - Removed `⚠️` from paused status
+6. **Confirmation prompt**: Changed `⚠️` to `WARNING:`
+7. **Summary borders**: Changed Unicode `━` to ASCII `-` for better terminal compatibility
 
-I made a targeted safety improvement to prevent accidental destructive operations:
-
-### Changes Made
-
-**1. `src/commands/cache.ts`**
-- Added confirmation prompt before clearing cache data
-- Added `-y/--yes` flag to skip confirmation (for scripts/automation)
-- Updated examples to show the `-y` flag usage
-
-**2. `src/commands/settings.ts`**
-- Added confirmation prompt before resetting settings to defaults
-- Added `-y/--yes` flag to skip confirmation
-- Updated examples to show the `-y` flag usage
-
-**3. `test/commands/cache.test.ts`**
-- Updated tests to use `-y` flag for non-interactive test execution
-
-### Why This Matters
-
-This change improves **Correctness & Safety** (Priority 1 from the goals):
-- Prevents accidental cache clearing which could force unnecessary API calls
-- Prevents accidental settings reset which could remove tokens or preferences
-- Matches the safety pattern already established in the `transfer` command
-- Maintains scriptability via the `-y` flag
-- No new dependencies added (uses existing `inquirer` package)
+All 299 tests pass, the build succeeds, and lint passes.
 
 SUCCESS

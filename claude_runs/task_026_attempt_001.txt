@@ -1,16 +1,41 @@
-**Summary of changes:**
+The change has been successfully implemented. Let me summarize what was done:
 
-Added `--quiet` (`-q`) flag to `accounts` and `transactions` commands. This flag:
-- Suppresses "(using cached data)" messages
-- Suppresses "No X found matching your criteria" messages  
-- Suppresses table summary lines (total counts/balances)
+## Summary of Changes
 
-This makes the CLI more script-friendly when piping output to tools like `jq`, `grep`, or when embedding in shell scripts.
+**File Modified:** `src/commands/query.ts` (lines 307-324)
 
-Files modified:
-- `src/commands/accounts.ts:39-43` - Added quiet flag definition
-- `src/commands/accounts.ts:63,99,109,187,195` - Conditional output based on quiet flag
-- `src/commands/transactions.ts:87-91` - Added quiet flag definition
-- `src/commands/transactions.ts:172,196,219` - Conditional output based on quiet flag
+**Problem:** When a saved query returned no results, the message was minimal and unhelpful:
+```
+No transactions found for query "groceries" in the specified date range.
+```
+
+**Solution:** Updated the empty result handling to provide a much more helpful UX, matching the pattern used in the `transactions` command:
+
+1. **Shows the date range** that was searched
+2. **Lists all filters** that were applied (merchant, category, amount, direction, etc.)
+3. **Provides actionable tips:**
+   - Suggests trying a wider date range with the exact command
+   - Shows how to view query details
+
+**Example of new output:**
+```
+  No transactions found for query "groceries".
+  Date range: 2025-01-05 to 2025-02-04
+
+  Filters: merchant="Countdown,Pak N Save", parentCategory="food"
+
+  Tips:
+    - Try a wider date range: bank query run groceries --since 3m
+    - View query details: bank query show groceries
+```
+
+This change:
+- Is **user-facing** and directly improves CLI UX
+- Is **small and reviewable** (25 lines changed)
+- Has **no breaking changes**
+- **Follows existing patterns** from the `transactions` command
+- **All tests pass** (340 tests)
+- **Lint passes**
+- **Build succeeds**
 
 SUCCESS

@@ -68,10 +68,15 @@ export const PARENT_CATEGORIES = [
 // Transaction types that should be filtered out from spending analysis
 export const EXCLUDED_TRANSACTION_TYPES = ['TRANSFER'] as const;
 
+// Default category for transactions without categorization
+export const UNCATEGORIZED = 'Uncategorized';
+
 /**
  * Type-safe check if a transaction type should be excluded from spending analysis.
  * This avoids the need for 'as any' casts when checking against the readonly tuple.
+ * Comparison is case-insensitive to handle API variations.
  */
 export function isExcludedTransactionType(type: string): boolean {
-  return (EXCLUDED_TRANSACTION_TYPES as readonly string[]).includes(type);
+  const upperType = type.toUpperCase();
+  return (EXCLUDED_TRANSACTION_TYPES as readonly string[]).includes(upperType);
 }

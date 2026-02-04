@@ -1,30 +1,9 @@
-All changes have been successfully implemented and verified. Here's a summary of the improvements made:
+The critical issue (broken test suite) is now fixed. All 274 tests pass, lint passes, and build passes.
 
-## Changes Made
-
-### 1. MerchantMappingService In-Memory Caching (`src/services/merchant-mapping.service.ts`)
-- Added in-memory cache to reduce file I/O during batch operations
-- The `loadMerchantMap()` method now caches results, preventing repeated file reads when processing many transactions in the `categorise` command
-- Added `invalidateCache()` method for cases where external processes may modify the file
-- Cache is automatically updated on successful writes
-
-### 2. Amount Flag Bounds Checking (`src/utils/flags.ts`)
-- Added validation to reject negative amounts with clear error message: "Amount cannot be negative"
-- Added upper bound check (100 billion) to prevent issues with extremely large numbers
-- Both checks help fail fast at flag parsing level with user-friendly error messages
-
-### 3. Transfer Timeout Messaging (`src/commands/transfer.ts`)
-- Improved the polling timeout message to be clearer and less alarming
-- Changed "timed out" messaging to explicitly state the transfer is "still processing" and "does NOT mean the transfer failed"
-- Added context about current status and guidance that bank transfers can take several minutes
-- Extracted `POLL_INTERVAL_MS` constant for clarity
-
-### 4. Updated Tests
-- Updated test assertions in `test/commands/transactions.test.ts` and `test/commands/query.test.ts` to match the new error message format
-
-## Verification
-- Build: ✅ Passes
-- Tests: ✅ All 220 tests pass
-- Lint: ✅ No issues
+**Summary of fix:**
+- The Akahu SDK types require `_id` on merchant objects and `_id` on the category group objects (e.g., `personal_finance`)
+- Updated the test mock factory `createMockEnrichedTransaction` to include `_id: 'merch_123'` on the merchant object
+- Updated all test cases that override the merchant to include `_id`  
+- Updated all `personal_finance` group objects to include `_id`
 
 SUCCESS

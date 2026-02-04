@@ -1,33 +1,27 @@
-All changes have been implemented and verified. Here's a summary of the improvements made:
+All checks pass. Here's a summary of the change:
 
-## Changes Made
+## Summary
 
-### 1. **Google Sheets home directory detection** (`src/services/google-sheets.service.ts`)
-- Added `import { homedir } from 'os'` and use `homedir()` as primary method
-- Keeps env var fallback for edge cases
-- Fixes reliability on Windows and non-standard environments
+Added a `--merchants` flag to the `transactions` command that lists unique merchants from matching transactions, sorted alphabetically.
 
-### 2. **Output error handlers** (`src/utils/output.ts`)
-- Changed `console.error()` to `throw new Error()` in 4 format functions
-- Provides clearer error messages and proper error propagation
-- Makes debugging easier when unexpected data types are passed
+### Changes Made:
 
-### 3. **Transfer amount validation** (`src/commands/transfer.ts`)
-- Replaced fragile string-splitting with regex validation: `/^\d+(\.\d{1,2})?$/`
-- Now properly rejects:
-  - Scientific notation (e.g., "1e-3")
-  - Trailing decimal without digits (e.g., "100.")
-  - More than 2 decimal places
-- Better error message guides users on correct format
+1. **`src/commands/transactions.ts`**:
+   - Added `--merchants` flag (boolean) with description: "List unique merchants from matching transactions (sorted alphabetically)"
+   - Updated mutually exclusive flag validation to include `--merchants` alongside `--count` and `--total`
+   - Added handling that outputs merchants alphabetically, one per line, with a count summary
+   - Updated the "tips" message for empty results to use the new `--merchants` flag instead of the jq workaround
+   - Added two examples in the command help
 
-### 4. **Cache service date parsing performance** (`src/services/cache.service.ts`)
-- Pre-parse all dates once before loops in `isRangeCovered()` and `mergeDateRanges()`
-- Eliminates O(n) repeated `new Date()` calls in tight loops
-- Improves performance for large cached date ranges
+2. **`test/commands/transactions.test.ts`**:
+   - Updated the test for mutually exclusive flags to cover all combinations
+   - Added test for `--merchants` flag
 
-### 5. **Merchant filter validation** (`src/services/transaction-processing.service.ts`)
-- Filter out empty strings from comma-separated merchant list
-- Prevents empty strings from matching all transactions (overly broad matches)
-- Maintains backward compatibility - non-empty merchant filters work as before
+### Why This Matters:
+
+- **Discoverability**: Users previously had to pipe through jq (`bank transactions --format json | jq -r ".[].merchant" | sort -u`) to see available merchants. Now it's `bank transactions --merchants`
+- **No external dependencies**: Works without jq installed
+- **Composable**: Works with all existing filters (e.g., `--parentCategory "Utilities" --merchants` to see merchants in a category)
+- **Scriptable**: Output is one merchant per line (use `--quiet` to suppress the count summary)
 
 SUCCESS

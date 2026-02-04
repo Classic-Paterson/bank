@@ -1,4 +1,4 @@
-import { Command } from '@oclif/core';
+import { Command, Flags } from '@oclif/core';
 import { Account } from 'akahu';
 import chalk from 'chalk';
 
@@ -6,11 +6,11 @@ import { apiService } from '../services/api.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { transactionProcessingService } from '../services/transaction-processing.service.js';
 import { FormattedTransaction } from '../types/index.js';
-import { isExcludedTransactionType, DEFAULT_OVERVIEW_DAYS_BACK } from '../constants/index.js';
-import { formatRelativeTime, formatCurrency } from '../utils/output.js';
+import { isExcludedTransactionType, DEFAULT_OVERVIEW_DAYS_BACK, UNCATEGORIZED } from '../constants/index.js';
+import { formatRelativeTime, formatCurrency, formatCacheAge } from '../utils/output.js';
 import { getErrorMessage } from '../utils/error.js';
-import { parseDateRange } from '../utils/date.js';
-import { refreshFlag, quietFlag, dateFilterFlags, warnIfConfigCorrupted, isCacheEnabled } from '../utils/flags.js';
+import { parseDateRange, formatDateISO } from '../utils/date.js';
+import { refreshFlag, quietFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, isCacheEnabled } from '../utils/flags.js';
 
 export default class Overview extends Command {
   static description = 'Display a financial dashboard with account balances, spending summary, and recent activity';
@@ -18,14 +18,28 @@ export default class Overview extends Command {
   static override examples = [
     '<%= config.bin %> <%= command.id %>',
     '<%= config.bin %> <%= command.id %> --days 30',
+    '<%= config.bin %> <%= command.id %> --since thismonth       # Month to date',
+    '<%= config.bin %> <%= command.id %> --since thisweek        # This week',
+    '<%= config.bin %> <%= command.id %> --since thisquarter     # Quarter to date',
     '<%= config.bin %> <%= command.id %> --since 2024-01-01 --until 2024-01-31',
     '<%= config.bin %> <%= command.id %> --refresh',
+    '<%= config.bin %> <%= command.id %> --compare               # Compare with previous period',
+    '<%= config.bin %> <%= command.id %> --since thismonth --compare  # This month vs last month',
+    '<%= config.bin %> <%= command.id %> --account "Everyday"    # Overview for a specific account',
   ];
 
   static override flags = {
     ...dateFilterFlags(DEFAULT_OVERVIEW_DAYS_BACK),
+    account: Flags.string({
+      char: 'a',
+      description: 'Filter to a specific account (by ID or name)',
+    }),
     refresh: refreshFlag,
     quiet: quietFlag,
+    compare: Flags.boolean({
+      description: 'Compare with previous period (e.g., this month vs last month)',
+      default: false,
+    }),
   };
 
   /**
@@ -35,6 +49,47 @@ export default class Overview extends Command {
   private colorCurrency(amount: number): string {
     const formatted = formatCurrency(amount);
     return amount < 0 ? chalk.red(formatted) : chalk.green(formatted);
+  }
+
+  /**
+   * Format a percentage change with trend arrow and color.
+   * For spending (negative values), increases are bad (red ↑), decreases are good (green ↓).
+   * For income (positive values), increases are good (green ↑), decreases are bad (red ↓).
+   */
+  private formatChange(current: number, previous: number, isSpending: boolean): string {
+    if (previous === 0) {
+      return current === 0 ? chalk.dim('--') : chalk.dim('new');
+    }
+
+    const percentChange = ((current - previous) / Math.abs(previous)) * 100;
+    const absPercent = Math.abs(percentChange).toFixed(0);
+
+    if (Math.abs(percentChange) < 1) {
+      return chalk.dim('~0%');
+    }
+
+    if (percentChange > 0) {
+      // Increase: bad for spending, good for income
+      const arrow = '↑';
+      const text = `${arrow}${absPercent}%`;
+      return isSpending ? chalk.red(text) : chalk.green(text);
+    } else {
+      // Decrease: good for spending, bad for income
+      const arrow = '↓';
+      const text = `${arrow}${absPercent}%`;
+      return isSpending ? chalk.green(text) : chalk.red(text);
+    }
+  }
+
+  /**
+   * Calculate the previous period dates based on current period.
+   * Returns dates for a period of the same length, immediately before the current period.
+   */
+  private getPreviousPeriod(startParsed: Date, endParsed: Date): { prevStart: Date; prevEnd: Date } {
+    const periodMs = endParsed.getTime() - startParsed.getTime();
+    const prevEnd = new Date(startParsed.getTime() - 1); // Day before current start
+    const prevStart = new Date(prevEnd.getTime() - periodMs);
+    return { prevStart, prevEnd };
   }
 
   public async run(): Promise<void> {
@@ -48,6 +103,7 @@ export default class Overview extends Command {
       until: flags.until,
       days: flags.days,
       defaultDaysBack: DEFAULT_OVERVIEW_DAYS_BACK,
+      onWarning: flags.quiet ? undefined : (msg) => this.warn(msg),
     });
     if (!dateResult.success) {
       this.error(dateResult.error);
@@ -63,7 +119,24 @@ export default class Overview extends Command {
         cacheEnabled,
         () => apiService.listAccounts()
       );
-      const accounts = accResult.accounts;
+      let accounts = accResult.accounts;
+
+      // Filter to specific account if requested
+      let selectedAccount: Account | undefined;
+      if (flags.account) {
+        const accountFilter = flags.account.toLowerCase();
+        selectedAccount = accounts.find((acc: Account) =>
+          acc._id === flags.account ||
+          acc.name.toLowerCase().includes(accountFilter)
+        );
+
+        if (!selectedAccount) {
+          this.error(`Account "${flags.account}" not found. Use 'bank accounts --names' to list available accounts.`);
+        }
+
+        // When filtering by account, only show that account
+        accounts = [selectedAccount];
+      }
 
       // Fetch transactions with caching
       const txResult = await cacheService.getTransactionsWithCache(
@@ -73,11 +146,65 @@ export default class Overview extends Command {
         cacheEnabled,
         () => apiService.listAllTransactions(sinceDate, untilDate)
       );
-      const transactions = txResult.transactions;
-      const fromCache = accResult.fromCache || txResult.fromCache;
+      let transactions = txResult.transactions;
+      let fromCache = accResult.fromCache || txResult.fromCache;
+      // Use the oldest cache age for display
+      let cacheAge = txResult.cacheAge || accResult.cacheAge;
+
+      // Filter transactions to selected account if specified
+      if (selectedAccount) {
+        transactions = transactions.filter(tx => tx._account === selectedAccount!._id);
+      }
 
       // Format transactions for analysis
-      const formattedTransactions = transactionProcessingService.formatTransactions(transactions, accounts);
+      const formattedTransactions = transactionProcessingService.formatTransactions(transactions, accResult.accounts);
+
+      // Fetch previous period data if comparing
+      let prevSpending = 0;
+      let prevIncome = 0;
+      let prevCategorySpending: Record<string, number> = {};
+      if (flags.compare) {
+        const { prevStart, prevEnd } = this.getPreviousPeriod(startParsed, endParsed);
+        const prevStartStr = formatDateISO(prevStart);
+        const prevEndStr = formatDateISO(prevEnd);
+
+        const prevTxResult = await cacheService.getTransactionsWithCache(
+          prevStartStr,
+          prevEndStr,
+          flags.refresh,
+          cacheEnabled,
+          () => apiService.listAllTransactions(prevStartStr, prevEndStr)
+        );
+
+        fromCache = fromCache || prevTxResult.fromCache;
+        if (prevTxResult.cacheAge && (!cacheAge || new Date(prevTxResult.cacheAge) < new Date(cacheAge))) {
+          cacheAge = prevTxResult.cacheAge;
+        }
+
+        // Filter previous period transactions to selected account if specified
+        let prevTransactions = prevTxResult.transactions;
+        if (selectedAccount) {
+          prevTransactions = prevTransactions.filter(tx => tx._account === selectedAccount!._id);
+        }
+
+        const prevFormattedTx = transactionProcessingService.formatTransactions(prevTransactions, accResult.accounts);
+
+        prevSpending = prevFormattedTx
+          .filter((tx: FormattedTransaction) => tx.amount < 0 && !isExcludedTransactionType(tx.type))
+          .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
+
+        prevIncome = prevFormattedTx
+          .filter((tx: FormattedTransaction) => tx.amount > 0 && !isExcludedTransactionType(tx.type))
+          .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
+
+        prevCategorySpending = prevFormattedTx
+          .filter((tx: FormattedTransaction) => tx.amount < 0 && !isExcludedTransactionType(tx.type) && tx.parentCategory)
+          .reduce((acc: Record<string, number>, tx: FormattedTransaction) => {
+            const category = tx.parentCategory || UNCATEGORIZED;
+            acc[category] = (acc[category] || 0) + Math.abs(tx.amount);
+            return acc;
+          }, {});
+      }
 
       // Calculate totals
       const totalBalance = accounts.reduce((sum, acc) => sum + (acc.balance?.current ?? 0), 0);
@@ -119,7 +246,7 @@ export default class Overview extends Command {
           tx.parentCategory
         )
         .reduce((acc: Record<string, number>, tx: FormattedTransaction) => {
-          const category = tx.parentCategory || 'Uncategorized';
+          const category = tx.parentCategory || UNCATEGORIZED;
           acc[category] = (acc[category] || 0) + Math.abs(tx.amount);
           return acc;
         }, {});
@@ -131,16 +258,22 @@ export default class Overview extends Command {
       // Get cache info
       const cacheInfo = cacheService.getCacheInfo();
 
+      // Warn if cache was corrupted on load
+      warnIfCacheCorrupted(this, flags.quiet);
+
       // ═══════════════════════════════════════════════════════════════
       // DISPLAY OUTPUT
       // ═══════════════════════════════════════════════════════════════
 
       this.log('');
-      this.log(chalk.bold('  FINANCIAL OVERVIEW'));
+      const headerTitle = selectedAccount
+        ? `  FINANCIAL OVERVIEW: ${selectedAccount.name}`
+        : '  FINANCIAL OVERVIEW';
+      this.log(chalk.bold(headerTitle));
       this.log(chalk.dim('  ─────────────────────────────────────────────'));
 
       if (fromCache && !flags.quiet) {
-        this.log(chalk.dim('  (using cached data)'));
+        this.log(chalk.dim(`  ${formatCacheAge(cacheAge)}`));
       }
       this.log('');
 
@@ -171,9 +304,42 @@ export default class Overview extends Command {
       const periodLabel = daysInRange === 1 ? '1 day' : `${daysInRange} days`;
       this.log(chalk.bold(`  THIS PERIOD`) + chalk.dim(` (${sinceDate} to ${untilDate}, ${periodLabel})`));
       this.log('');
-      this.log(`  Income:    ${this.colorCurrency(income)}`);
-      this.log(`  Spending:  ${this.colorCurrency(spending)}`);
-      this.log(`  Net:       ${this.colorCurrency(income + spending)}`);
+      if (flags.compare) {
+        const incomeChange = this.formatChange(income, prevIncome, false);
+        const spendingChange = this.formatChange(Math.abs(spending), Math.abs(prevSpending), true);
+        const netChange = this.formatChange(income + spending, prevIncome + prevSpending, false);
+        this.log(`  Income:    ${this.colorCurrency(income)}  ${incomeChange}`);
+        this.log(`  Spending:  ${this.colorCurrency(spending)}  ${spendingChange}`);
+        this.log(`  Net:       ${this.colorCurrency(income + spending)}  ${netChange}`);
+      } else {
+        this.log(`  Income:    ${this.colorCurrency(income)}`);
+        this.log(`  Spending:  ${this.colorCurrency(spending)}`);
+        this.log(`  Net:       ${this.colorCurrency(income + spending)}`);
+      }
+
+      // Daily spending rate indicator
+      if (daysInRange > 1 && Math.abs(spending) > 0) {
+        const dailyRate = Math.abs(spending) / daysInRange;
+        const daysElapsed = Math.ceil((new Date().getTime() - startParsed.getTime()) / (1000 * 60 * 60 * 24));
+        // Clamp daysElapsed to the period range (handle viewing past periods)
+        const effectiveDaysElapsed = Math.min(Math.max(daysElapsed, 1), daysInRange);
+        const expectedSpending = dailyRate * effectiveDaysElapsed;
+        const actualSpending = Math.abs(spending);
+
+        // Only show pace if we're partway through the period (not viewing complete past periods)
+        const isPeriodComplete = daysElapsed >= daysInRange;
+        if (!isPeriodComplete) {
+          const paceRatio = actualSpending / expectedSpending;
+          const paceLabel = paceRatio <= 1.0
+            ? chalk.green('on pace')
+            : paceRatio <= 1.2
+              ? chalk.yellow('slightly over')
+              : chalk.red('over pace');
+          this.log(`  Daily avg: ${formatCurrency(dailyRate)}/day  ${paceLabel}`);
+        } else {
+          this.log(`  Daily avg: ${formatCurrency(dailyRate)}/day`);
+        }
+      }
       this.log('');
 
       // Top Spending Categories
@@ -184,7 +350,13 @@ export default class Overview extends Command {
           const barLength = Math.round((amount / maxSpend) * 20);
           const bar = chalk.red('█'.repeat(barLength)) + chalk.dim('░'.repeat(20 - barLength));
           const amountStr = `$${amount.toFixed(0)}`.padStart(8);
-          this.log(`  ${bar} ${amountStr}  ${category}`);
+          if (flags.compare) {
+            const prevAmount = prevCategorySpending[category] || 0;
+            const change = this.formatChange(amount, prevAmount, true);
+            this.log(`  ${bar} ${amountStr}  ${category}  ${change}`);
+          } else {
+            this.log(`  ${bar} ${amountStr}  ${category}`);
+          }
         }
         this.log('');
       }

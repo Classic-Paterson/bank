@@ -1,9 +1,9 @@
 import { Args, Command, Flags } from '@oclif/core';
 import { Account } from 'akahu';
 
-import { formatOutput } from '../utils/output.js';
+import { formatOutput, formatCurrency, formatCacheAge } from '../utils/output.js';
 import { getErrorMessage } from '../utils/error.js';
-import { refreshFlag, quietFlag, formatFlag, warnIfConfigCorrupted, resolveFormat, isCacheEnabled } from '../utils/flags.js';
+import { refreshFlag, quietFlag, formatFlag, warnIfConfigCorrupted, warnIfCacheCorrupted, resolveFormat, isCacheEnabled, checkMutuallyExclusiveFlags } from '../utils/flags.js';
 import { apiService } from '../services/api.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { AccountSummary } from '../types/index.js';
@@ -23,6 +23,8 @@ export default class Accounts extends Command {
     '<%= config.bin %> <%= command.id %> --details',
     '<%= config.bin %> <%= command.id %> --total  # Get total balance across all accounts',
     '<%= config.bin %> <%= command.id %> --type savings --total  # Get total savings balance',
+    '<%= config.bin %> <%= command.id %> --names  # List account names only',
+    '<%= config.bin %> <%= command.id %> --ids    # List account IDs only',
   ];
 
   static override flags = {
@@ -42,12 +44,30 @@ export default class Accounts extends Command {
       description: 'Output only the total balance of matching accounts (useful for scripting)',
       default: false,
     }),
+    names: Flags.boolean({
+      description: 'Output only account names (one per line, useful for scripting)',
+      default: false,
+    }),
+    ids: Flags.boolean({
+      description: 'Output only account IDs (one per line, useful for scripting)',
+      default: false,
+    }),
   };
 
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Accounts);
 
     warnIfConfigCorrupted(this, flags.quiet);
+
+    // Validate mutually exclusive output mode flags
+    const flagConflict = checkMutuallyExclusiveFlags([
+      ['--total', flags.total],
+      ['--names', flags.names],
+      ['--ids', flags.ids],
+    ]);
+    if (flagConflict) {
+      this.error(flagConflict);
+    }
 
     // Resolve and validate format early (normalized to lowercase)
     const format = resolveFormat(flags.format);
@@ -59,21 +79,24 @@ export default class Accounts extends Command {
       const canUseCache = !flags.details;
 
       // Fetch accounts (from cache or API)
-      const { accounts: rawAccounts, fromCache } = canUseCache
+      const { accounts: rawAccounts, fromCache, cacheAge } = canUseCache
         ? await cacheService.getAccountsWithCache(
             flags.refresh,
             cacheEnabled,
             () => apiService.listAccounts()
           )
-        : { accounts: await apiService.listAccounts(), fromCache: false };
+        : { accounts: await apiService.listAccounts(), fromCache: false, cacheAge: null };
 
       // Update cache if we fetched fresh data
       if (!fromCache && cacheEnabled) {
         cacheService.setAccountCache(rawAccounts);
       }
 
+      // Warn if cache was corrupted on load
+      warnIfCacheCorrupted(this, flags.quiet);
+
       if (fromCache && format === 'table' && !flags.quiet) {
-        this.log('(using cached data)\n');
+        this.log(`${formatCacheAge(cacheAge)}\n`);
       }
 
       // Map accounts to display format
@@ -88,12 +111,13 @@ export default class Accounts extends Command {
             availableBalance: account.balance?.available ?? (account.balance?.current ?? 0),
             meta:
               account.type.toLowerCase() === 'loan'
-                ? `Interest: ${account.meta?.loan_details?.interest?.rate ?? 'N/A'}%, Amount: $${Number(account.meta?.loan_details?.repayment?.next_amount ?? 0).toFixed(2)}, Due: ${new Date(account.meta?.loan_details?.repayment?.next_date ?? '').toLocaleDateString('en-GB')}`
+                ? `Interest: ${account.meta?.loan_details?.interest?.rate ?? 'N/A'}%, Amount: ${formatCurrency(Number(account.meta?.loan_details?.repayment?.next_amount ?? 0))}, Due: ${new Date(account.meta?.loan_details?.repayment?.next_date ?? '').toLocaleDateString('en-GB')}`
                 : account.type.toLowerCase() === 'kiwisaver'
-                  ? `Returns: $${Number(account.meta?.breakdown?.returns ?? 0).toFixed(2)}`
+                  ? `Returns: ${formatCurrency(Number(account.meta?.breakdown?.returns ?? 0))}`
                   : '',
           }))
         : rawAccounts.map((account: Account) => ({
+            id: account._id,
             accountNumber: account.formatted_account ?? '',
             name: account.name,
             type: account.type,
@@ -137,8 +161,9 @@ export default class Accounts extends Command {
       }
 
       if (sortedAccounts.length === 0) {
-        if (flags.total) {
-          this.log('0.00');
+        if (flags.total || flags.names || flags.ids) {
+          // For scripting flags, output nothing (0.00 for total, empty for names/ids)
+          if (flags.total) this.log('0.00');
         } else if (!flags.quiet) {
           // Build a helpful message showing what was searched
           const appliedFilters: string[] = [];
@@ -164,12 +189,44 @@ export default class Accounts extends Command {
         return;
       }
 
-      formatOutput(sortedAccounts, format);
+      // If --names flag is set, output account names only (one per line)
+      if (flags.names) {
+        const names = sortedAccounts.map((acc: AccountSummary) => acc.name);
+        for (const name of names) {
+          this.log(name);
+        }
+        if (!flags.quiet) {
+          this.log(`\n(${names.length} account${names.length === 1 ? '' : 's'})`);
+        }
+        return;
+      }
+
+      // If --ids flag is set, output account IDs only (one per line)
+      if (flags.ids) {
+        for (const acc of sortedAccounts) {
+          this.log(acc.id!);
+        }
+        if (!flags.quiet) {
+          this.log(`\n(${sortedAccounts.length} account${sortedAccounts.length === 1 ? '' : 's'})`);
+        }
+        return;
+      }
+
+      // Prepare display data (strip id field for non-detailed view to keep output clean)
+      const displayAccounts = flags.details
+        ? sortedAccounts
+        : sortedAccounts.map((acc) => {
+            const { id, ...rest } = acc;
+            void id; // Intentionally unused - we strip id from display but need it for --ids
+            return rest;
+          });
+
+      formatOutput(displayAccounts, format, this.log.bind(this));
 
       if (format === 'table' && !flags.quiet) {
         const totalAccounts = sortedAccounts.length;
         const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
-        this.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: $${totalBalance.toFixed(NZD_DECIMAL_PLACES)}\n`);
+        this.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: ${formatCurrency(totalBalance)}\n`);
       }
 
     } catch (error) {

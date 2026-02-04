@@ -1,18 +1,40 @@
-The improvement has been made successfully:
+All checks pass. Here's a summary of the changes made:
 
-**Change Summary:**
-- Added defensive error handling around JSON parsing in `src/commands/categorise.ts:19-24`
-- Previously, if `nzfcc_categories.json` contained invalid JSON, the entire CLI would crash on startup
-- Now, invalid JSON is handled gracefully - the command continues without category suggestions but remains functional
+## Changes Summary
 
-**Impact:**
-- **Correctness**: Prevents crash from corrupted or malformed configuration file
-- **UX**: Users can still categorize transactions manually even if the suggestion file is broken
-- **Minimal change**: Single try-catch block, no new dependencies or complexity
+### Feature: Added `--account` filter to `categories` and `overview` commands
 
-**Verification:**
-- Build: ✓ Compiles successfully
-- Tests: ✓ All 47 tests passing
-- Lint: ✓ No errors (only deprecation warnings from dependencies)
+This improvement adds consistency across commands by allowing users to filter spending analysis and financial overview to a specific account. Previously, only the `transactions` command supported this filter.
+
+**Files modified:**
+
+1. **`src/commands/categories.ts`**
+   - Added `--account` / `-a` flag to filter spending by account
+   - Added account fetching when filter is specified
+   - Added account name resolution (by ID or partial name match)
+   - Shows filtered account name when active
+   - Added example in command help
+
+2. **`src/commands/overview.ts`**
+   - Added `--account` / `-a` flag to filter overview to specific account
+   - Filters both current and previous period transactions (for `--compare`)
+   - Shows account name in header when filtering
+   - Added example in command help
+
+3. **`test/commands/categories.test.ts`**
+   - Added test for account filter flag
+
+4. **`test/commands/overview.test.ts`**
+   - Added test for account filter flag
+   - Added test for account filter combined with `--compare` flag
+
+**User benefit:**
+- Users can now analyze spending by category for a specific account: `bank categories --account "Everyday"`
+- Users can see a financial overview for a single account: `bank overview --account "Savings" --compare`
+- Consistent flag behavior across `transactions`, `categories`, and `overview` commands
+
+**Tests:** 340 passing (3 new)
+**Build:** Clean
+**Lint:** Clean
 
 SUCCESS

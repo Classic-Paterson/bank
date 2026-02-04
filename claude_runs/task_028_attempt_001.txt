@@ -1,12 +1,42 @@
-**Change Made:**
+All changes have been successfully implemented and verified. Here's a summary of the improvements made:
 
-Fixed `formatRelativeTime` in `src/utils/output.ts` to handle future dates gracefully. Previously, if a date was in the future (which can happen with pending transactions or scheduled transfers), the function would produce confusing output like "-5m ago" due to negative time differences. 
+## Summary of Changes
 
-**The fix:**
-- Detects whether the date is in the future
-- For future dates, returns user-friendly strings like "in 5m", "in 2d", "tomorrow", "in 3 weeks"
-- For past dates, the existing behavior is preserved ("5m ago", "yesterday", etc.)
+### 1. New `--stats` Flag for Transactions Command
+**File:** `src/commands/transactions.ts`
 
-This is a correctness improvement that ensures the CLI produces trustworthy, clear output regardless of transaction timing.
+Added a `--stats` flag that provides a quick statistical summary without listing all transactions:
+- Transaction count
+- Income, spending, and net totals
+- Average, min, and max transaction amounts
+- Date range of data
+- Count of unique merchants and categories
+
+This is a high-impact UX improvement for power users who want quick insights without scrolling through transaction lists.
+
+### 2. Fixed Merchant Name Normalization Bug
+**Files:** 
+- `src/services/merchant-mapping.service.ts` - Added exported `normaliseMerchantName()` function
+- `src/services/transaction-processing.service.ts` - Now uses normalized lookup keys
+- `src/commands/categorise.ts` - Uses shared normalization function
+
+**Problem:** The `categorise` command saved merchant mappings with normalized keys (lowercase, special chars replaced), but the `transaction-processing.service` looked up mappings using raw merchant names from the API. This caused lookups to fail silently.
+
+**Solution:** Centralized the normalization logic in `merchant-mapping.service.ts` and used it consistently in both saving (categorise) and lookup (transaction-processing) operations.
+
+### 3. Updated Tests
+**File:** `test/commands/transactions.test.ts`
+- Added tests for `--stats` flag
+- Added tests for mutual exclusivity with other output flags
+- Updated error message expectations
+
+**File:** `test/services/transaction-processing.service.test.ts`
+- Updated merchant mapping tests to use normalized keys
+- Tests now properly verify the normalized lookup behavior
+
+### Verification
+- Build: ✅ Passes
+- Lint: ✅ Passes  
+- Tests: ✅ 348 tests passing
 
 SUCCESS

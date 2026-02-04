@@ -1,0 +1,20 @@
+**Summary of Changes:**
+
+I refactored the `formatOutput` utility to accept an optional logger parameter, enabling proper oclif integration across all commands. This is a code quality improvement that:
+
+1. **Added `Logger` type** in `src/utils/output.ts` - A typed function signature for output loggers
+2. **Updated `formatOutput` signature** - Now accepts `log: Logger = console.log` as third parameter
+3. **Propagated logger through all internal helpers** - All 12 internal formatting functions now use the injected logger
+4. **Updated 4 commands** to pass `this.log.bind(this)`:
+   - `src/commands/transactions.ts`
+   - `src/commands/accounts.ts`
+   - `src/commands/categories.ts`
+   - `src/commands/query.ts`
+
+**Benefits:**
+- **Backward compatible** - Defaults to `console.log` so existing code and tests work unchanged
+- **Proper oclif integration** - Commands now use oclif's `this.log` for consistent output handling
+- **Testability** - Output can be captured via mock loggers
+- **Separation of concerns** - Formatting logic no longer controls where output goes
+
+SUCCESS

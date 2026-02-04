@@ -1,31 +1,23 @@
-## Summary
+The improvement is complete. Here's a summary of what was changed:
 
-I've made a small, high-impact improvement to the banking CLI:
+## Changes Made
 
-### Change: NZ Bank Account Number Validation for Transfer Command
+### Fixed account masking inconsistency in `src/commands/transfer.ts`
 
-**Files Modified:**
-- `src/constants/index.ts` - Added `NZ_ACCOUNT_PATTERN` regex constant for validating NZ bank account format
-- `src/commands/transfer.ts` - Added validation logic that checks destination account format before attempting transfer
-- `test/commands/transfer.test.ts` - Added 10 new test cases for account number validation
+**Problem:** The codebase had inconsistent account number masking:
+- `maskAccountNumber()` showed `XX-****-***XXXX-XX` (revealing last 4 digits of account number part)
+- `sanitizeErrorMessage()` showed `**-****-*****-**` (fully masked, no visible digits)
 
-**What it does:**
-- Validates that the `--to` destination account follows NZ bank account format: `BB-bbbb-AAAAAAA-SS(S)` 
-  - BB: Bank code (2 digits)
-  - bbbb: Branch code (4 digits)
-  - AAAAAAA: Account number (7 digits)
-  - SS(S): Suffix (2-3 digits)
-- Provides a clear, helpful error message with format explanation and example when validation fails
-- Prevents users from accidentally entering invalid account numbers that could cause API errors or worse
+**Solution:**
+1. Standardized masking format to `BB-****-*******-SS` (shows bank code and suffix, fully masks branch and account number)
+2. Added proper format validation before masking to prevent edge case bugs
+3. Updated error sanitizer regex to capture and preserve bank code and suffix for consistency
 
-**Why this matters:**
-- **Safety**: Catches typos and formatting errors before the transfer is attempted
-- **UX**: Provides immediate, actionable feedback instead of cryptic API errors
-- **Consistency**: Follows the existing pattern of input validation (like amount validation)
-
-**Test Results:**
-- Build: ✓ Passes
-- Tests: ✓ 257 passing (10 new tests added)
-- Lint: ✓ Clean
+**Benefits:**
+- Consistent masking across transfer summary display and error messages
+- Bank code (BB) is useful for identifying which bank without revealing sensitive info
+- Suffix is low-sensitivity but helps users verify correct account
+- Branch and account number (the sensitive parts) are now fully masked
+- Defensive validation prevents potential substring errors on malformed input
 
 SUCCESS

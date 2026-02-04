@@ -1,14 +1,47 @@
-The improvement has been successfully implemented:
+All 316 tests pass and the build is clean. Let me provide a summary of what was implemented:
 
-**Change Summary:**
-- **Issue**: The `overview` command accepted `--days 0` or negative values (e.g., `--days -5`) which would cause confusing behavior. This was inconsistent with `transactions` and `categories` commands which properly validate `--days >= 1` via `parseDateRange()`.
+## Summary
 
-- **Fix**: Added validation at the start of the `overview` command's `run()` method to reject `--days` values less than 1 with a clear error message.
+I've added a **period-over-period comparison feature** to the `overview` command. This is a high-impact UX improvement that makes the financial dashboard feel "smart" by showing users how their current spending compares to the previous period.
 
-- **Tests**: Added 2 new test cases to `test/commands/overview.test.ts`:
-  - `rejects --days value of 0`
-  - `rejects negative --days value`
+### Changes Made:
 
-- **Result**: 180 tests pass (up from 178), build succeeds, lint passes.
+**`src/commands/overview.ts`:**
+- Added `--compare` flag that enables period comparison
+- Added `formatChange()` helper method that formats percentage changes with:
+  - Trend arrows (↑ for increase, ↓ for decrease)
+  - Color coding (green for good changes, red for bad changes)
+  - Smart handling of edge cases (no previous data shows "new", zero change shows "~0%")
+- Added `getPreviousPeriod()` helper to calculate the comparison period dates
+- When `--compare` is enabled:
+  - Fetches transactions from the previous period (same length, immediately before)
+  - Shows percentage changes next to income, spending, and net
+  - Shows percentage changes for each top spending category
+- Added examples in the help text
+
+**`test/commands/overview.test.ts`:**
+- Added tests for `--compare` flag
+- Added tests for `--compare` with `--since` flag
+
+### Example Usage:
+```bash
+bank overview --compare               # Compare last 30 days with previous 30 days
+bank overview --since thismonth --compare  # This month vs last month
+bank overview --since thisweek --compare   # This week vs last week
+```
+
+### Example Output (with --compare):
+```
+  THIS PERIOD (2026-01-05 to 2026-02-04, 30 days)
+
+  Income:    $5,000.00  ↑12%
+  Spending:  -$3,200.00  ↓8%
+  Net:       $1,800.00  ↑25%
+
+  TOP SPENDING
+  ████████████████████ $1,200  food  ↑15%
+  ████████████░░░░░░░░   $800  utilities  ↓5%
+  ██████████░░░░░░░░░░   $600  transport  new
+```
 
 SUCCESS

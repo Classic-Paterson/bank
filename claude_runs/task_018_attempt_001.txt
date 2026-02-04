@@ -1,16 +1,12 @@
-The improvement has been successfully implemented:
+The fix is in place. The change is minimal and targeted:
 
-**Change made**: Added a grand total row to the `categories` command output that sums all spending across categories per month.
+**What was fixed:**
+- `src/commands/categories.ts:38-39`: Changed `resolveFormat(flags.format, 'table')` to `resolveFormat(flags.format)`, which now properly falls back to the user's configured default format (via `configService.get('format')`) instead of always defaulting to 'table'.
 
-**What it does**:
-- For table format: Adds a `═════` separator followed by a `TOTAL` row showing the sum of all spending per month
-- For other formats (json, csv, ndjson, list): Adds a `total` row with the same sums
+**Why this matters:**
+- Before: Users who set their preferred format (e.g., `bank settings set format csv`) would see that preference ignored by the `categories` command
+- After: The `categories` command respects the same format resolution as all other commands
 
-**Why this is valuable**:
-- Users no longer need to manually sum categories to see total monthly spending
-- Makes the categories output immediately actionable for budgeting
-- Consistent with how financial reports typically present data
-
-**Files changed**: `src/commands/categories.ts:141-170`
+**Build and tests:** All 314 tests pass, linting passes, and the project builds successfully.
 
 SUCCESS

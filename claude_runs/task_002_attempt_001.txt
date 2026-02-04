@@ -1,23 +1,33 @@
-All tests pass and the build is successful.
+All tasks completed. Here's a summary of the changes made:
 
-## Summary
+## Changes Made
 
-I added a `--total` flag to the `accounts` command that outputs only the total balance of matching accounts. This improvement:
+### 1. Case-insensitive transaction type comparison (`src/constants/index.ts`)
+- Updated `isExcludedTransactionType()` to convert the input to uppercase before comparison
+- This ensures consistent behavior regardless of API case variations
 
-**What it does:**
-- `bank accounts --total` outputs just the total balance (e.g., `12345.67`)
-- Combines with other filters: `bank accounts --type savings --total` gives total savings balance
-- Outputs `0.00` when no accounts match criteria
-- Uses consistent 2-decimal-place formatting (NZD)
+### 2. Flag collision fix (`src/commands/transactions.ts`)
+- Removed the `-r` short flag from `--relative` flag
+- The `-r` was conflicting with `--refresh` (which also uses `-r`)
+- Users can still use `--relative` (long form only)
 
-**Why it's useful:**
-- Enables scripting workflows (e.g., `SAVINGS=$(bank accounts --type savings --total)`)
-- Provides parity with the `transactions` command which already had `--count` and `--total` flags
-- Makes "What's my net worth?" a one-liner
-- Clean output for piping into other tools
+### 3. UNCATEGORIZED constant (`src/constants/index.ts`)
+- Added `UNCATEGORIZED = 'Uncategorized'` constant
+- Updated these files to use the constant:
+  - `src/services/transaction-processing.service.ts`
+  - `src/commands/transactions.ts`
+  - `src/commands/categories.ts`
+  - `src/commands/overview.ts`
 
-**Changes made:**
-- `src/commands/accounts.ts`: Added `--total` flag and logic
-- `test/commands/accounts.test.ts`: Added 2 tests for the new flag
+### 4. Consistent use of `isExcludedTransactionType()` helper
+- `src/commands/transactions.ts`: Replaced direct `tx.type === 'TRANSFER'` check
+- `src/commands/categories.ts`: Replaced direct `tx.type === 'TRANSFER'` check
+
+### 5. Quiet flag for query command (`src/commands/query.ts`)
+- Added `quiet` flag to the query command
+- Updated `runQuery()` to respect quiet mode for informational messages
+- Added `quiet` to QueryFlags interface
+
+All 274 tests pass and linting succeeds.
 
 SUCCESS

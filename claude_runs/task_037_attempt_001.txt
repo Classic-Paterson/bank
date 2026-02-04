@@ -1,0 +1,22 @@
+I've completed the first improvement. Here's a summary of what was done:
+
+## Changes Made
+
+**Created shared masking utility (`src/utils/mask.ts`):**
+- `maskSensitiveValue()` - masks tokens/sensitive strings, showing first/last 4 chars for values ≥9 characters
+- `maskAccountNumber()` - specialized masking for NZ bank account numbers (BB-****-*******-SS format)
+
+**Updated commands to use shared utility:**
+- `src/commands/settings.ts` - now imports from `utils/mask.js`
+- `src/commands/transfer.ts` - removed duplicate private methods, now imports from `utils/mask.js`
+
+**Added comprehensive tests (`test/utils/mask.test.ts`):**
+- 15 test cases covering edge cases (empty string, boundary lengths, various formats)
+
+**Benefits:**
+- DRY principle: single source of truth for masking logic
+- Easier to maintain and fix bugs in one place
+- Consistent masking behavior across the CLI
+- Better test coverage for masking functions
+
+SUCCESS

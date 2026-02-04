@@ -1,17 +1,35 @@
 The changes are complete. Here's a summary of what was improved:
 
-## Changes Made
+## Summary of Changes
 
-### 1. Improved `--quiet` flag description (`src/utils/flags.ts`)
-- Updated the description from generic "Suppress informational messages (useful for scripting)" to clearly document what gets suppressed: "Suppress informational messages (cache status, summaries, tips)"
-- Added clearer JSDoc comment explaining the behavior
+**Problem Identified:** Duplicate `formatRelativeTime` implementations existed in two places:
+1. `src/utils/output.ts` - comprehensive version with minutes/hours granularity
+2. `src/services/transaction-processing.service.ts` - compact version for table display
 
-### 2. Fixed category breakdown respecting `--quiet` (`src/commands/transactions.ts`)
-- The category breakdown summary (shown with `--details` flag) was already within a `!flags.quiet` check, but I improved the code structure:
-  - Added a guard to only show category breakdown when there are non-transfer transactions
-  - Cleaned up formatting (removed extra newlines, better comment)
-  - This ensures the detailed view output is consistent and predictable
+**Solution Implemented:**
 
-Both changes make the CLI more predictable for users who expect `--quiet` to suppress all informational output except the actual data - essential for scripting workflows like piping output to `jq` or other tools.
+1. **Enhanced `formatRelativeTime` in `src/utils/output.ts`** (lines 62-133):
+   - Added `RelativeTimeOptions` interface with `compact` option
+   - When `compact: true`:
+     - Uses "today" instead of "just now" for same-day times
+     - Uses abbreviated weeks ("2w ago" instead of "2 weeks ago")
+     - Falls back to locale date string for times older than 30 days
+   - Backward compatible - existing calls work without any changes
+
+2. **Updated `src/services/transaction-processing.service.ts`**:
+   - Removed 17-line private `formatRelativeTime` method
+   - Now imports and uses the consolidated utility with `{ compact: true }`
+   - Reduced file from 252 to 231 lines
+
+3. **Added comprehensive tests in `test/utils/output.test.ts`**:
+   - 9 new test cases for compact mode
+   - Tests for edge cases like weeks formatting, future dates, and fallback behavior
+
+**Benefits:**
+- Single source of truth for relative time formatting
+- Consistent behavior across the application
+- Both verbose and compact formats available via options
+- Better test coverage with 295 passing tests
+- Reduced code duplication (~17 lines removed)
 
 SUCCESS

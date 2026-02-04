@@ -29,6 +29,13 @@ class CacheService {
   // Track last write failure for diagnostics
   private lastWriteError: string | null = null;
 
+  /**
+   * Tracks whether the cache file was corrupted or unreadable on load.
+   * Commands can check this to warn users about potential issues.
+   */
+  public hadLoadError = false;
+  private loadErrorMessage: string | null = null;
+
   constructor() {
     this.cacheDir = path.join(homedir(), CONFIG_DIR_NAME);
     this.transactionCacheFile = path.join(this.cacheDir, CACHE_FILE_NAME);
@@ -62,7 +69,10 @@ class CacheService {
       }
       this.transactionCacheMemory = cache;
       return cache;
-    } catch {
+    } catch (err) {
+      // Cache file exists but is corrupted or unreadable
+      this.hadLoadError = true;
+      this.loadErrorMessage = err instanceof Error ? err.message : 'Unknown cache read error';
       this.transactionCacheMemory = { lastUpdate: null, transactions: [], cachedRanges: [] };
       return this.transactionCacheMemory;
     }
@@ -83,7 +93,10 @@ class CacheService {
       const data = fs.readFileSync(this.accountCacheFile, 'utf8');
       this.accountCacheMemory = JSON.parse(data) as AccountCache;
       return this.accountCacheMemory;
-    } catch {
+    } catch (err) {
+      // Cache file exists but is corrupted or unreadable
+      this.hadLoadError = true;
+      this.loadErrorMessage = err instanceof Error ? err.message : 'Unknown cache read error';
       this.accountCacheMemory = { lastUpdate: null, accounts: [] };
       return this.accountCacheMemory;
     }
@@ -297,6 +310,14 @@ class CacheService {
   }
 
   /**
+   * Get the cache load error message, if any.
+   * Returns null if cache loaded successfully.
+   */
+  getLoadErrorMessage(): string | null {
+    return this.loadErrorMessage;
+  }
+
+  /**
    * Check if caching is currently working (last write succeeded).
    * This allows commands to warn users when cache writes are failing.
    */
@@ -431,16 +452,17 @@ class CacheService {
     forceRefresh: boolean,
     cacheEnabled: boolean,
     fetchFn: () => Promise<Account[]>
-  ): Promise<{ accounts: Account[]; fromCache: boolean }> {
+  ): Promise<{ accounts: Account[]; fromCache: boolean; cacheAge: string | null }> {
     if (cacheEnabled && !forceRefresh && this.isAccountCacheValid()) {
-      return { accounts: this.getCachedAccountsAsApiType(), fromCache: true };
+      const cache = this.loadAccountCache();
+      return { accounts: this.getCachedAccountsAsApiType(), fromCache: true, cacheAge: cache.lastUpdate };
     }
 
     const accounts = await fetchFn();
     if (cacheEnabled) {
       this.setAccountCache(accounts);
     }
-    return { accounts, fromCache: false };
+    return { accounts, fromCache: false, cacheAge: null };
   }
 
   /**
@@ -459,16 +481,17 @@ class CacheService {
     forceRefresh: boolean,
     cacheEnabled: boolean,
     fetchFn: () => Promise<EnrichedTransaction[]>
-  ): Promise<{ transactions: EnrichedTransaction[]; fromCache: boolean }> {
+  ): Promise<{ transactions: EnrichedTransaction[]; fromCache: boolean; cacheAge: string | null }> {
     if (cacheEnabled && !forceRefresh && this.isTransactionCacheValid(startDate, endDate)) {
-      return { transactions: this.getCachedTransactions(startDate, endDate), fromCache: true };
+      const cache = this.loadTransactionCache();
+      return { transactions: this.getCachedTransactions(startDate, endDate), fromCache: true, cacheAge: cache.lastUpdate };
     }
 
     const transactions = await fetchFn();
     if (cacheEnabled) {
       this.setTransactionCache(transactions, startDate, endDate);
     }
-    return { transactions, fromCache: false };
+    return { transactions, fromCache: false, cacheAge: null };
   }
 }
 

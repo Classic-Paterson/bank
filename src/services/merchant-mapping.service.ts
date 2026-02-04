@@ -9,6 +9,16 @@ import {
 import { MerchantCategory, MerchantMap } from '../types/index.js';
 
 /**
+ * Normalize a merchant name for consistent key lookups.
+ * Converts to lowercase and replaces special characters with spaces.
+ * This ensures consistent matching regardless of how the merchant name
+ * appears in different API responses.
+ */
+export function normaliseMerchantName(str: string): string {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
  * Service for managing merchant categorization mappings.
  * Uses in-memory caching to reduce file I/O during batch operations
  * (e.g., processing many transactions in the categorise command).

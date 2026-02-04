@@ -59,16 +59,41 @@ function isCategoryExpenseData(data: unknown): data is CategoryExpenseData {
 type DataRecord = object;
 
 /**
+ * Logger function type for output.
+ * Allows commands to pass their own logger (e.g., this.log) for proper oclif integration.
+ * Defaults to console.log for backward compatibility.
+ */
+export type Logger = (message: string) => void;
+
+/**
+ * Options for formatting relative time.
+ */
+export interface RelativeTimeOptions {
+    /**
+     * When true, produces shorter output suitable for tables:
+     * - "today" instead of "just now"
+     * - "2w ago" instead of "2 weeks ago"
+     * - Falls back to date string for times older than 30 days
+     */
+    compact?: boolean;
+}
+
+/**
  * Format a timestamp as a human-readable relative time string.
  * Accepts either an ISO date string or a Date object.
  * Handles both past and future dates gracefully.
+ *
+ * @param dateInput - Date to format (Date object or ISO string)
+ * @param options - Formatting options (default: { compact: false })
  *
  * @example
  * formatRelativeTime(new Date()) // "just now"
  * formatRelativeTime("2024-01-15T10:00:00Z") // "3d ago"
  * formatRelativeTime(futureDate) // "in 2d" (for pending transactions)
+ * formatRelativeTime(date, { compact: true }) // "2w ago" instead of "2 weeks ago"
  */
-export function formatRelativeTime(dateInput: string | Date): string {
+export function formatRelativeTime(dateInput: string | Date, options: RelativeTimeOptions = {}): string {
+    const { compact = false } = options;
     const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -78,27 +103,84 @@ export function formatRelativeTime(dateInput: string | Date): string {
     const diffHours = Math.floor(absDiffMs / 3600000);
     const diffDays = Math.floor(absDiffMs / 86400000);
 
-    if (diffMins < 1) return 'just now';
-
-    if (isFuture) {
-        if (diffMins < 60) return `in ${diffMins}m`;
-        if (diffHours < 24) return `in ${diffHours}h`;
-        if (diffDays === 1) return 'tomorrow';
-        if (diffDays < 7) return `in ${diffDays}d`;
-        const weeks = Math.floor(diffDays / 7);
-        if (diffDays < 30) return `in ${weeks} ${weeks === 1 ? 'week' : 'weeks'}`;
-        const months = Math.floor(diffDays / 30);
-        return `in ${months} ${months === 1 ? 'month' : 'months'}`;
+    // Compact mode uses "today" for same-day; standard mode shows minutes/hours
+    if (compact) {
+        if (diffDays === 0) return 'today';
+    } else {
+        if (diffMins < 1) return 'just now';
+        if (isFuture) {
+            if (diffMins < 60) return `in ${diffMins}m`;
+            if (diffHours < 24) return `in ${diffHours}h`;
+        } else {
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+        }
     }
 
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
+    if (diffDays === 1) return isFuture ? 'tomorrow' : 'yesterday';
+    if (diffDays < 7) return isFuture ? `in ${diffDays}d` : `${diffDays}d ago`;
+
     const weeks = Math.floor(diffDays / 7);
-    if (diffDays < 30) return `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    if (diffDays < 30) {
+        if (compact) {
+            return isFuture ? `in ${weeks}w` : `${weeks}w ago`;
+        }
+        return isFuture
+            ? `in ${weeks} ${weeks === 1 ? 'week' : 'weeks'}`
+            : `${weeks} ${weeks === 1 ? 'week' : 'weeks'} ago`;
+    }
+
+    // For compact mode, fall back to short date for older transactions
+    if (compact) {
+        return date.toLocaleDateString();
+    }
+
     const months = Math.floor(diffDays / 30);
-    return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+    return isFuture
+        ? `in ${months} ${months === 1 ? 'month' : 'months'}`
+        : `${months} ${months === 1 ? 'month' : 'months'} ago`;
+}
+
+/**
+ * Format a cache age as a human-readable string.
+ * Shows how old cached data is, to help users understand data freshness.
+ *
+ * @param lastUpdate - ISO timestamp of when the cache was last updated
+ * @returns A human-readable string like "(using cached data from 45m ago)"
+ *
+ * @example
+ * formatCacheAge("2024-01-15T10:00:00Z") // "(using cached data from 2h ago)"
+ * formatCacheAge(null) // "(using cached data)"
+ */
+export function formatCacheAge(lastUpdate: string | null): string {
+    if (!lastUpdate) {
+        return '(using cached data)';
+    }
+
+    const cacheDate = new Date(lastUpdate);
+    const now = new Date();
+    const diffMs = now.getTime() - cacheDate.getTime();
+
+    // Handle invalid dates
+    if (isNaN(diffMs)) {
+        return '(using cached data)';
+    }
+
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+
+    if (diffMins < 1) {
+        return '(using cached data from just now)';
+    }
+    if (diffMins < 60) {
+        return `(using cached data from ${diffMins}m ago)`;
+    }
+    if (diffHours < 24) {
+        return `(using cached data from ${diffHours}h ago)`;
+    }
+
+    const diffDays = Math.floor(diffMs / 86400000);
+    return `(using cached data from ${diffDays}d ago)`;
 }
 
 /**
@@ -123,51 +205,52 @@ export function formatCurrency(value: number): string {
  * Supports arrays of objects (transactions, accounts, etc.) and category expense data.
  * @param data - Array of records or CategoryExpenseData object
  * @param format - Output format: json, csv, table, list, or ndjson
+ * @param log - Logger function (defaults to console.log). Pass this.log from commands for proper oclif output.
  */
-export function formatOutput(data: DataRecord[] | CategoryExpenseData, format: string): void {
+export function formatOutput(data: DataRecord[] | CategoryExpenseData, format: string, log: Logger = console.log): void {
     switch (format.toLowerCase()) {
         case 'json': {
-            console.log(JSON.stringify(data, null, 2));
+            log(JSON.stringify(data, null, 2));
             break;
         }
 
         case 'ndjson': {
-            formatAsNdjson(data);
+            formatAsNdjson(data, log);
             break;
         }
 
         case 'csv': {
-            formatAsCsv(data);
+            formatAsCsv(data, log);
             break;
         }
 
         case 'table': {
-            formatAsTable(data);
+            formatAsTable(data, log);
             break;
         }
 
         case 'list':
         default: {
-            formatAsList(data);
+            formatAsList(data, log);
             break;
         }
     }
 }
 
-function formatAsTable(data: DataRecord[] | CategoryExpenseData): void {
+function formatAsTable(data: DataRecord[] | CategoryExpenseData, log: Logger): void {
     if (Array.isArray(data)) {
-        formatArrayAsTable(data);
+        formatArrayAsTable(data, log);
     } else if (isCategoryExpenseData(data)) {
-        formatExpensesByCategoryAsTable(data);
+        formatExpensesByCategoryAsTable(data, log);
     } else {
         // Type constraints should prevent this, but throw for safety
         throw new Error('Unsupported data format for table output. Expected array or category expense data.');
     }
 }
 
-function formatArrayAsTable(data: DataRecord[]): void {
+function formatArrayAsTable(data: DataRecord[], log: Logger): void {
     if (data.length === 0) {
-        console.log('No data available');
+        log('No data available');
         return;
     }
 
@@ -204,10 +287,10 @@ function formatArrayAsTable(data: DataRecord[]): void {
         table.push(row);
     }
 
-    console.log(table.toString());
+    log(table.toString());
 }
 
-function formatExpensesByCategoryAsTable(data: CategoryExpenseData): void {
+function formatExpensesByCategoryAsTable(data: CategoryExpenseData, log: Logger): void {
     const { expenses_by_category, months } = data;
 
     const headers = ['Category', ...months];
@@ -227,50 +310,50 @@ function formatExpensesByCategoryAsTable(data: CategoryExpenseData): void {
         table.push(row);
     }
 
-    console.log(table.toString());
+    log(table.toString());
 }
 
-function formatAsCsv(data: DataRecord[] | CategoryExpenseData): void {
+function formatAsCsv(data: DataRecord[] | CategoryExpenseData, log: Logger): void {
     if (Array.isArray(data)) {
-        formatArrayAsCsv(data);
+        formatArrayAsCsv(data, log);
     } else if (isCategoryExpenseData(data)) {
-        formatExpensesByCategoryAsCsv(data);
+        formatExpensesByCategoryAsCsv(data, log);
     } else {
         throw new Error('Unsupported data format for CSV output. Expected array or category expense data.');
     }
 }
 
-function formatAsNdjson(data: DataRecord[] | CategoryExpenseData): void {
+function formatAsNdjson(data: DataRecord[] | CategoryExpenseData, log: Logger): void {
     if (Array.isArray(data)) {
-        formatArrayAsNdjson(data);
+        formatArrayAsNdjson(data, log);
     } else if (isCategoryExpenseData(data)) {
-        formatExpensesByCategoryAsNdjson(data);
+        formatExpensesByCategoryAsNdjson(data, log);
     } else {
         throw new Error('Unsupported data format for NDJSON output. Expected array or category expense data.');
     }
 }
 
-function formatAsList(data: DataRecord[] | CategoryExpenseData): void {
+function formatAsList(data: DataRecord[] | CategoryExpenseData, log: Logger): void {
     if (Array.isArray(data)) {
-        formatArrayAsList(data);
+        formatArrayAsList(data, log);
     } else if (isCategoryExpenseData(data)) {
-        formatExpensesByCategoryAsList(data);
+        formatExpensesByCategoryAsList(data, log);
     } else {
         throw new Error('Unsupported data format for list output. Expected array or category expense data.');
     }
 }
 
-function formatArrayAsCsv(data: DataRecord[]): void {
+function formatArrayAsCsv(data: DataRecord[], log: Logger): void {
     if (data.length === 0) {
         return;
     }
 
     const columns = Object.keys(data[0]);
     const csv = stringify(data, { columns, header: true });
-    console.log(csv);
+    log(csv);
 }
 
-function formatExpensesByCategoryAsCsv(data: CategoryExpenseData): void {
+function formatExpensesByCategoryAsCsv(data: CategoryExpenseData, log: Logger): void {
     const { expenses_by_category, months } = data;
 
     const records: Input = [];
@@ -287,18 +370,18 @@ function formatExpensesByCategoryAsCsv(data: CategoryExpenseData): void {
     const columns = ['category', ...months];
 
     const csv = stringify(records, { columns, header: true });
-    console.log(csv);
+    log(csv);
 }
 
-function formatArrayAsList(data: DataRecord[]): void {
+function formatArrayAsList(data: DataRecord[], log: Logger): void {
     if (data.length === 0) {
-        console.log('No data available');
+        log('No data available');
         return;
     }
 
     for (let i = 0; i < data.length; i++) {
         const item = data[i];
-        console.log(`\n[${i + 1}]`);
+        log(`\n[${i + 1}]`);
 
         for (const [key, value] of Object.entries(item)) {
             let displayValue: unknown = value;
@@ -311,36 +394,36 @@ function formatArrayAsList(data: DataRecord[]): void {
             } else if (displayValue instanceof Date) {
                 displayValue = displayValue.toLocaleDateString();
             }
-            console.log(`  ${key}: ${displayValue}`);
+            log(`  ${key}: ${displayValue}`);
         }
     }
 }
 
-function formatExpensesByCategoryAsList(data: CategoryExpenseData): void {
+function formatExpensesByCategoryAsList(data: CategoryExpenseData, log: Logger): void {
     const { expenses_by_category, months } = data;
 
-    console.log('\nExpenses by Category:');
+    log('\nExpenses by Category:');
 
     for (const category of Object.keys(expenses_by_category)) {
-        console.log(`\n${category}:`);
+        log(`\n${category}:`);
         for (const month of months) {
             const amount = expenses_by_category[category][month] ?? 0;
-            console.log(`  ${month}: ${formatCurrency(amount)}`);
+            log(`  ${month}: ${formatCurrency(amount)}`);
         }
     }
 }
 
-function formatArrayAsNdjson(data: DataRecord[]): void {
+function formatArrayAsNdjson(data: DataRecord[], log: Logger): void {
     if (data.length === 0) {
         return;
     }
 
     for (const item of data) {
-        console.log(JSON.stringify(item));
+        log(JSON.stringify(item));
     }
 }
 
-function formatExpensesByCategoryAsNdjson(data: CategoryExpenseData): void {
+function formatExpensesByCategoryAsNdjson(data: CategoryExpenseData, log: Logger): void {
     const { expenses_by_category, months } = data;
 
     for (const category of Object.keys(expenses_by_category)) {
@@ -349,6 +432,6 @@ function formatExpensesByCategoryAsNdjson(data: CategoryExpenseData): void {
             const amount = expenses_by_category[category][month] ?? 0;
             record[month] = amount;
         }
-        console.log(JSON.stringify(record));
+        log(JSON.stringify(record));
     }
 }

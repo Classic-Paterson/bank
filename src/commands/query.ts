@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import { formatOutput, formatRelativeTime } from '../utils/output.js';
 import { parseDateRange, validateAmountRange } from '../utils/date.js';
 import { getErrorMessage } from '../utils/error.js';
-import { refreshFlag, formatFlag, detailsFlag, amountFlag, warnIfConfigCorrupted, resolveFormat, isCacheEnabled } from '../utils/flags.js';
+import { refreshFlag, formatFlag, detailsFlag, amountFlag, quietFlag, warnIfConfigCorrupted, resolveFormat, isCacheEnabled } from '../utils/flags.js';
 import { apiService } from '../services/api.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { queryService, validateQueryName } from '../services/query.service.js';
@@ -30,6 +30,7 @@ interface QueryFlags {
   format?: string;
   details?: boolean;
   refresh: boolean;
+  quiet: boolean;
 }
 
 export default class Query extends Command {
@@ -54,7 +55,8 @@ export default class Query extends Command {
     '<%= config.bin %> <%= command.id %> save large-purchases --minAmount 100 --description "Purchases over $100"',
     // Run a query
     '<%= config.bin %> <%= command.id %> run groceries',
-    '<%= config.bin %> <%= command.id %> run groceries --since 2024-01-01',
+    '<%= config.bin %> <%= command.id %> run groceries --since thismonth',
+    '<%= config.bin %> <%= command.id %> run groceries --since lastquarter',
     '<%= config.bin %> <%= command.id %> run groceries --refresh',
     // Show query details
     '<%= config.bin %> <%= command.id %> show groceries',
@@ -110,12 +112,13 @@ export default class Query extends Command {
     format: formatFlag,
     details: detailsFlag,
     refresh: refreshFlag,
+    quiet: quietFlag,
   };
 
   public async run(): Promise<void> {
     const { args, flags } = await this.parse(Query);
 
-    warnIfConfigCorrupted(this);
+    warnIfConfigCorrupted(this, flags.quiet);
 
     switch (args.action) {
       case 'list':
@@ -270,10 +273,12 @@ export default class Query extends Command {
       const transactions = transactionProcessingService.applyFilters(formattedTx, query.filters);
 
       if (transactions.length > 0) {
-        this.log('');
-        this.log(chalk.dim(`  Running query: ${name}${fromCache ? ' (cached)' : ''}`));
-        this.log(chalk.dim(`  Date range: ${startDate} to ${endDate}`));
-        this.log('');
+        if (!flags.quiet) {
+          this.log('');
+          this.log(chalk.dim(`  Running query: ${name}${fromCache ? ' (cached)' : ''}`));
+          this.log(chalk.dim(`  Date range: ${startDate} to ${endDate}`));
+          this.log('');
+        }
 
         const formattedTransactions = transactions.map((tx: FormattedTransaction) => ({
           ...tx,
@@ -290,15 +295,43 @@ export default class Query extends Command {
             }))
           : formattedTransactions;
 
-        formatOutput(displayData, format);
+        formatOutput(displayData, format, this.log.bind(this));
 
         // Summary
-        const totalAmount = transactions.reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
+        if (!flags.quiet) {
+          const totalAmount = transactions.reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
+          this.log('');
+          this.log(chalk.dim(`  ${transactions.length} transactions | Total: $${totalAmount.toFixed(NZD_DECIMAL_PLACES)}`));
+          this.log('');
+        }
+      } else if (!flags.quiet) {
+        // Show helpful empty result message with query details
         this.log('');
-        this.log(chalk.dim(`  ${transactions.length} transactions | Total: $${totalAmount.toFixed(NZD_DECIMAL_PLACES)}`));
+        this.log(chalk.yellow(`  No transactions found for query "${name}".`));
+        this.log(chalk.dim(`  Date range: ${startDate} to ${endDate}`));
         this.log('');
-      } else {
-        this.log(chalk.yellow(`  No transactions found for query "${name}" in the specified date range.`));
+
+        // Show the filters that were applied
+        const filters = query.filters;
+        const appliedFilters: string[] = [];
+        if (filters.merchant) appliedFilters.push(`merchant="${filters.merchant}"`);
+        if (filters.category) appliedFilters.push(`category="${filters.category}"`);
+        if (filters.parentCategory) appliedFilters.push(`parentCategory="${filters.parentCategory}"`);
+        if (filters.accountId) appliedFilters.push(`account="${filters.accountId}"`);
+        if (filters.type) appliedFilters.push(`type="${filters.type}"`);
+        if (filters.minAmount !== undefined) appliedFilters.push(`minAmount=${filters.minAmount}`);
+        if (filters.maxAmount !== undefined) appliedFilters.push(`maxAmount=${filters.maxAmount}`);
+        if (filters.direction) appliedFilters.push(`direction=${filters.direction}`);
+
+        if (appliedFilters.length > 0) {
+          this.log(chalk.dim(`  Filters: ${appliedFilters.join(', ')}`));
+          this.log('');
+        }
+
+        this.log(chalk.dim('  Tips:'));
+        this.log(chalk.dim('    - Try a wider date range: bank query run ' + name + ' --since 3m'));
+        this.log(chalk.dim('    - View query details: bank query show ' + name));
+        this.log('');
       }
 
     } catch (error) {

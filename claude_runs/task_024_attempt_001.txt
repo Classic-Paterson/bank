@@ -1,9 +1,26 @@
-The fix corrects a grammatical issue in `formatRelativeTime()` where "1 weeks ago" and "1 months ago" are now properly rendered as "1 week ago" and "1 month ago" (singular when count equals 1).
+I've successfully added a user-friendly improvement to the banking CLI. Here's a summary of the change:
 
-**Change summary:**
-- Fixed in `src/utils/output.ts:25-28`
-- Changed `${Math.floor(diffDays / 7)} weeks ago` to properly handle singular/plural
-- Changed `${Math.floor(diffDays / 30)} months ago` to properly handle singular/plural
-- Build passes, all 47 tests pass, lint is clean
+## Change Summary
+
+**Added natural language "N days/weeks/months ago" date syntax support**
+
+Users can now use more natural date expressions in commands like:
+- `bank transactions --since "7 days ago"`
+- `bank transactions --since "2 weeks ago"`
+- `bank transactions --since "3 months ago"`
+- `bank overview --since "1 week ago"`
+
+This complements the existing shorthand syntax (`7d`, `2w`, `3m`) with a more readable alternative that users might naturally try when first using the CLI.
+
+**Changes made:**
+1. `src/utils/date.ts` - Added parsing for "N days ago", "N weeks ago", and "N months ago" patterns (case-insensitive)
+2. `test/utils/date.test.ts` - Added 12 new test cases covering the new syntax
+
+**Why this matters:**
+- Makes the CLI feel more intuitive and "pro"
+- Supports natural language that users might instinctively try
+- No breaking changes - existing syntax continues to work
+- Minimal code addition (~24 lines of parsing logic)
+- Well-tested with comprehensive edge case coverage
 
 SUCCESS

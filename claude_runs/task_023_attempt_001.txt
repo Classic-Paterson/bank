@@ -1,21 +1,26 @@
-## Summary of Changes
+The fix is working correctly:
+- `-s` is now correctly mapped to `--since` (the date filter)
+- `--summary` no longer has a short flag (which avoids the collision)
 
-**1. Removed dead code from `src/services/api.service.ts`:**
-- Deleted the unused `listTransactions()` method (lines 102-161) that was never called anywhere in the codebase. All commands use `listAllTransactions()` instead.
+The help output clearly shows:
+- `-s, --since=<value>` for the date filter
+- `--summary` (no short flag) for the spending summary
 
-**2. Added helper method to `src/services/cache.service.ts`:**
-- Added `getCachedAccountsAsApiType()` method that encapsulates the repeated pattern of converting `AccountSummary[]` to `Account[]`-compatible format.
+This is a **correctness fix** that prevents a real bug where users typing `bank transactions -s` might get unexpected behavior due to the flag collision.
 
-**3. Refactored three commands to use the new helper:**
-- `src/commands/transactions.ts`: Removed 8 lines of duplicate conversion code
-- `src/commands/overview.ts`: Removed 8 lines of duplicate conversion code  
-- `src/commands/query.ts`: Removed 8 lines of duplicate conversion code
-- Cleaned up unused `AccountSummary` imports from all three files
+## Summary
+
+**Fixed: Flag collision in transactions command**
+
+The `transactions` command had a bug where both `--since` (date filter) and `--summary` (spending summary) were assigned the `-s` short flag. This caused ambiguous behavior where oclif would silently pick one flag over the other.
+
+**Changes made:**
+1. `src/commands/transactions.ts`: Removed `char: 's'` from the `summary` flag definition
+2. `test/commands/transactions.test.ts`: Updated test name and behavior to correctly reflect that `-s` is the shorthand for `--since` (date filter)
 
 **Impact:**
-- Reduced code duplication (~24 lines removed across 3 files)
-- Eliminated 58 lines of dead code from `ApiService`
-- Single source of truth for AccountSummary → Account conversion
-- All 47 tests pass, build and lint succeed
+- Users can now reliably use `-s thismonth` as shorthand for `--since thismonth`
+- `--summary` must be typed in full (which is reasonable for an optional summary feature)
+- No backwards compatibility concerns since the previous behavior was undefined/buggy
 
 SUCCESS

@@ -1,29 +1,55 @@
-The implementation is complete. Here's a summary of the changes:
+All changes have been implemented and verified. Here's a summary of what was done:
 
-## Summary
+## Summary of Changes
 
-Added a `--direction` filter to the `transactions` and `query` commands, allowing users to easily filter transactions by:
-- `--direction in` - Show only income (positive amounts)
-- `--direction out` - Show only spending/expenses (negative amounts)
+### 1. Smart Time Presets (High-Impact UX Improvement)
+Added intuitive date shortcuts that match how users naturally think about time periods:
 
-### Files Modified:
+**New presets added to `src/utils/date.ts`:**
+- `thisweek` - First day of current week (Monday)
+- `lastweek` - First day of previous week (Monday)
+- `thisquarter` - First day of current quarter
+- `lastquarter` - First day of previous quarter
+- `thisyear` - First day of current year
+- `lastyear` - First day of previous year
 
-1. **src/types/index.ts** - Added `direction?: 'in' | 'out'` to `TransactionFilter` interface
-2. **src/services/transaction-processing.service.ts** - Added direction filter logic to `applyFilters()`
-3. **src/commands/transactions.ts** - Added `--direction` flag and examples
-4. **src/commands/query.ts** - Added `--direction` flag for saved queries
-5. **test/services/transaction-processing.service.test.ts** - Added 4 unit tests for direction filter
-6. **test/commands/transactions.test.ts** - Added 3 command-level tests
+**Usage examples:**
+```bash
+bank transactions --since thismonth       # This month so far
+bank transactions --since thisweek        # This week (Mon-today)
+bank transactions --since thisquarter     # This quarter so far
+bank transactions --since thisyear        # Year to date
+bank categories --since lastquarter       # Last quarter spending
+```
 
-### Why this matters for users:
-- Common use case: "Show me just my expenses" or "Show me just my income"
-- Previously required workarounds with amount filters
-- Works with saved queries - users can create "spending-only" or "income-only" query presets
-- Intuitive naming: `in` (money coming in) and `out` (money going out)
+### 2. Fixed Empty State Handling in Categories Command
+The `categories` command now provides helpful guidance when no spending is found instead of silently outputting nothing:
 
-### Tests:
-- Build passes ✓
-- All 229 tests pass (222 existing + 7 new) ✓
-- Lint passes ✓
+```
+No spending found between 2024-01-01 and 2024-01-31.
+
+This could be because:
+  - No outgoing transactions exist in this date range
+  - All transactions are internal transfers (excluded from spending)
+
+Tips:
+  - Try a wider date range: --days 90
+  - Check your transactions: bank transactions --since 2024-01-01
+```
+
+### 3. Updated Documentation
+- Updated flag descriptions in `src/utils/flags.ts` to list all available presets
+- Added practical examples to command help text showing the new presets
+- Updated error messages to mention more shortcut options
+- Added 8 new unit tests for the new date presets
+
+### Files Changed:
+- `src/utils/date.ts` - Added 6 new date presets
+- `src/utils/flags.ts` - Updated flag description
+- `src/commands/categories.ts` - Fixed empty state handling + examples
+- `src/commands/transactions.ts` - Added examples
+- `src/commands/overview.ts` - Added examples
+- `src/commands/query.ts` - Added examples
+- `test/utils/date.test.ts` - Added 8 new tests
 
 SUCCESS

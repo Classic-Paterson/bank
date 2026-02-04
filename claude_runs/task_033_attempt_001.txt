@@ -1,0 +1,31 @@
+I've made a high-impact UX improvement to the banking CLI:
+
+**Feature Added: Daily Spending Rate Indicator**
+
+The `overview` command now shows users their daily spending rate and whether they're on track for the period:
+
+- **Daily avg**: Shows the average daily spending for the period (e.g., `$85.42/day`)
+- **Pace indicator**: 
+  - **green "on pace"** - spending at or below expected rate
+  - **yellow "slightly over"** - up to 20% over expected
+  - **red "over pace"** - more than 20% over expected rate
+
+This feature:
+1. Only appears for multi-day periods with spending (not for single-day views)
+2. Only shows the pace indicator when viewing current/in-progress periods (not historical)
+3. Uses color-coding for instant visual feedback
+4. Helps users understand if their spending velocity is sustainable
+
+Example output:
+```
+  THIS PERIOD (2024-01-01 to 2024-01-31, 31 days)
+
+  Income:    $4,500.00
+  Spending:  -$2,650.00
+  Net:       $1,850.00
+  Daily avg: $85.48/day  on pace
+```
+
+All 363 tests pass, and the build and lint succeed.
+
+SUCCESS

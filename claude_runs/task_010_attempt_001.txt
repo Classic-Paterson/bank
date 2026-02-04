@@ -1,26 +1,21 @@
-The implementation is complete. Here's a summary of the changes:
+## Summary
 
-## Summary of Changes
+I added the `endofthisweek` date shortcut to complement the existing week-based shortcuts. This is a small, high-impact improvement that:
 
-**Added automatic retry with exponential backoff to ApiService** (`src/services/api.service.ts`)
+**Changes Made:**
+1. **`src/utils/date.ts`**: Added `endofthisweek` shortcut that returns the upcoming Sunday (or today if it's Sunday), consistent with how `endoflastweek` works
+2. **`src/commands/transactions.ts`**: Added an example showing the new shortcut: `--since thisweek --until endofthisweek` for a full week query
+3. **`test/utils/date.test.ts`**: Added 2 tests for the new shortcut (normal and case-insensitive)
 
-This improves CLI reliability by automatically retrying API calls that fail due to transient errors:
+**Why This Matters:**
+- Completes the week-based date shortcut pattern (previously had `thisweek`, `lastweek`, `endoflastweek` but was missing `endofthisweek`)
+- Enables queries like "all transactions for the full current week" using `--since thisweek --until endofthisweek`
+- Follows existing patterns and conventions exactly
+- Zero risk of breaking changes - purely additive
 
-**What gets retried:**
-- Rate limiting (HTTP 429)
-- Server errors (HTTP 5xx)
-- Network errors: `ENOTFOUND`, `ECONNREFUSED`, `ECONNRESET`, `ETIMEDOUT`, `ESOCKETTIMEDOUT`, `EPIPE`
-
-**Retry behavior:**
-- Up to 3 retries by default
-- Exponential backoff: 1s → 2s → 4s (base delays)
-- ±25% jitter to prevent thundering herd
-- Maximum delay capped at 10 seconds
-
-**Safety consideration:**
-- `initiateTransfer()` intentionally does NOT auto-retry to prevent duplicate transactions
-
-**Tests added** (`test/services/api.service.test.ts`):
-- 12 new tests covering `isRetryableError()`, `calculateBackoffDelay()`, and configuration defaults
+**Verification:**
+- Build passes
+- All 299 tests pass (297 existing + 2 new)
+- Lint passes
 
 SUCCESS

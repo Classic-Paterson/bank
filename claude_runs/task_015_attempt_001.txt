@@ -1,38 +1,36 @@
-All checks pass. Here's a summary of the changes made:
+All checks pass. Here's a summary of the improvements made:
 
-## Summary
+## Summary of Changes
 
-**Improvement: Consolidated currency formatting utility**
+**Problem**: Users could specify both `--days` and `--since` flags without realizing that `--days` silently overrides `--since`. This could lead to unexpected results and confusion.
 
-### Changes Made:
+**Solution**: Added proactive UX improvements to make the CLI behave more transparently:
 
-1. **`src/utils/output.ts`**: 
-   - Exported the `formatCurrency` function (was private)
-   - Enhanced it to use `toLocaleString('en-NZ')` for proper thousands separators
-   - Added JSDoc documentation with examples
+### 1. Warning when conflicting flags are provided
+- Modified `parseDateRange()` in `src/utils/date.ts` to accept an optional `onWarning` callback
+- When both `--days` and `--since` are provided, the callback is invoked with a clear message explaining which flag takes precedence
 
-2. **`src/commands/overview.ts`**:
-   - Removed duplicate `formatCurrency()` and `formatCurrencyPlain()` private methods
-   - Now imports and uses the shared `formatCurrency()` from `output.ts`
-   - Added a small `colorCurrency()` helper that applies chalk coloring to the plain formatted output
+### 2. Updated help text
+- Changed the `--days` flag description in `src/utils/flags.ts` from:
+  `"Number of days to look back (default: N)"`
+  to:
+  `"Number of days to look back (default: N). Overrides --since if both provided."`
 
-3. **`test/utils/output.test.ts`** (new file):
-   - Added 21 unit tests for output utilities:
-     - `formatCurrency`: 7 tests covering positive/negative amounts, rounding, thousands separators
-     - `formatRelativeTime`: 8 tests covering various time formats
-     - `isValidOutputFormat`: 3 tests for format validation
-     - `validateOutputFormat`: 3 tests for format normalization
+### 3. Integrated warning into commands
+- Updated `transactions.ts`, `categories.ts`, and `overview.ts` to pass the warning callback (respecting `--quiet` mode)
 
-### Benefits:
-- **DRY**: Eliminated 15 lines of duplicate code
-- **Consistency**: All currency formatting now uses the same logic with thousands separators
-- **Testability**: The shared function is now unit tested, locking in behavior
-- **Maintainability**: Single source of truth for currency formatting
+### 4. Added unit tests
+- Added 3 new tests in `test/utils/date.test.ts` to verify:
+  - Warning callback is invoked when both flags provided
+  - Warning callback is NOT invoked when only `--days` is provided
+  - Warning callback is NOT invoked when only `--since` is provided
 
-### Test Results:
-- **157 → 178 tests** (21 new tests added)
-- All tests pass
-- Lint passes
-- Build succeeds
+**Files modified**:
+- `src/utils/date.ts` - Added `onWarning` callback support
+- `src/utils/flags.ts` - Updated help text
+- `src/commands/transactions.ts` - Pass warning callback
+- `src/commands/categories.ts` - Pass warning callback  
+- `src/commands/overview.ts` - Pass warning callback
+- `test/utils/date.test.ts` - Added 3 new tests
 
 SUCCESS

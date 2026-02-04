@@ -1,0 +1,41 @@
+All checks pass. Let me provide a summary of the changes made:
+
+## Summary
+
+I've added a **declarative utility for validating mutually exclusive CLI flags** (`checkMutuallyExclusiveFlags`) that improves:
+
+### Changes Made
+
+1. **`src/utils/flags.ts`** - Added new `checkMutuallyExclusiveFlags()` utility function:
+   - Takes an array of `[flagName, flagValue]` tuples
+   - Returns `null` if 0 or 1 flags are set (valid)
+   - Returns a human-readable error message if multiple flags are set
+   - Handles different value types correctly (booleans, numbers, strings, undefined/null)
+   - Generates specific error messages for the exact flags in conflict (better UX than a generic list)
+   - Uses proper Oxford comma formatting for 3+ flags
+
+2. **`src/commands/transactions.ts`** - Refactored to use the new utility:
+   - Replaced manual flag counting/validation with declarative `checkMutuallyExclusiveFlags()`
+   - Now shows specific errors like "Cannot use --count and --total together" instead of listing all 5 flags
+
+3. **`src/commands/accounts.ts`** - Refactored to use the new utility:
+   - Same pattern as transactions, cleaner code
+
+4. **`test/utils/flags.test.ts`** - Added comprehensive test suite (14 tests):
+   - Tests for 0, 1, 2, 3, 4+ flags
+   - Tests for numeric flags (like `--top`) where `undefined` vs `0` matters
+   - Tests for boolean, string, null, empty string handling
+   - Tests for flag name prefix normalization
+
+5. **`test/commands/transactions.test.ts`** - Updated tests to match improved error messages:
+   - Tests now expect specific flag names in error messages rather than a generic list
+
+### Benefits
+
+- **Better UX**: Users see exactly which flags conflict, not a confusing list of all possible flags
+- **DRY**: Eliminates repetitive manual flag validation code across commands
+- **Maintainable**: Adding new mutually exclusive flags is now declarative and readable
+- **Well-tested**: 14 new unit tests cover edge cases
+- **Consistent**: Pattern can be easily adopted by other commands
+
+SUCCESS

@@ -1,0 +1,37 @@
+All checks pass. Here's a summary of the improvement I made:
+
+## Summary: Cache Corruption Detection & User Feedback
+
+### Problem
+When cache files become corrupted (disk error, truncated file, invalid JSON), the cache service silently fell back to empty cache. Users experienced slower performance without understanding why their cache wasn't working.
+
+### Solution
+Added cache corruption detection with user-facing warnings:
+
+**1. CacheService (`src/services/cache.service.ts`)**
+- Added `hadLoadError` public property to track load failures
+- Added `loadErrorMessage` property to store error details
+- Added `getLoadErrorMessage()` method for diagnostics
+- Both `loadTransactionCache()` and `loadAccountCache()` now set these on parse errors
+
+**2. Shared utility (`src/utils/flags.ts`)**
+- Added `warnIfCacheCorrupted()` helper function (mirrors existing `warnIfConfigCorrupted()`)
+- Displays: `Warning: Cache file is corrupted or unreadable. Run 'bank cache clear' to reset.`
+
+**3. Commands updated to show warnings**
+- `accounts.ts` - warns after cache operations
+- `transactions.ts` - warns after cache operations  
+- `categories.ts` - warns after cache operations
+- `overview.ts` - warns after cache operations
+- `cache.ts` - shows detailed error in `bank cache info`
+
+**4. Tests (`test/services/cache.service.test.ts`)**
+- Added design tests documenting the expected error tracking behavior
+
+### User Impact
+- Users now see a clear warning when their cache is broken
+- The warning includes actionable advice: `Run 'bank cache clear' to reset`
+- `bank cache info` shows detailed error messages for debugging
+- Respects `--quiet` flag (no warnings in quiet mode)
+
+SUCCESS

@@ -1,0 +1,19 @@
+The change I made improves the UX of the `transactions` command by properly handling empty results for the `--merchants`, `--top`, and `--stats` flags:
+
+**Before:**
+- `--merchants` with no results: outputs `'0'` (confusing - no merchants exist but outputs a number)
+- `--top N` with no results: silent failure (outputs nothing)
+- `--stats` with no results: silent failure (outputs nothing)
+
+**After:**
+- `--merchants` with no results: outputs `(0 unique merchants)` in normal mode, `0` in quiet mode
+- `--top N` with no results: outputs `No merchants to rank - no transactions found.` (or nothing in quiet mode)
+- `--stats` with no results: shows full statistics table with zeroes and the queried date range - users see what they asked for and understand no data was found
+
+This is a small but high-impact improvement because:
+1. Users no longer get silent failures from `--top` and `--stats` commands
+2. The output is predictable and useful (shows zeroed stats rather than nothing)
+3. Scriptable behavior is preserved (`--quiet` mode maintains machine-readable output)
+4. The date range in empty `--stats` output helps users understand what was searched
+
+SUCCESS

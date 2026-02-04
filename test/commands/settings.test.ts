@@ -18,34 +18,27 @@ describe('settings', () => {
     merchantMappingService.saveMerchantMap(originalMappings)
     merchantMappingService.invalidateCache()
   })
+
   it('runs settings list command', async () => {
     const {stdout} = await runCommand('settings list')
     expect(stdout).to.contain('Available settings')
   })
 
-  it('handles help flag', async () => {
-    const {stdout} = await runCommand('settings --help')
-    expect(stdout).to.contain('Configure CLI preferences')
+  it('shows help when no subcommand given', async () => {
+    const {stdout} = await runCommand('settings')
+    expect(stdout).to.contain('settings:list')
+    expect(stdout).to.contain('settings:get')
+    expect(stdout).to.contain('settings:set')
   })
 
-  it('handles help action', async () => {
+  it('handles settings help action', async () => {
     const {stdout} = await runCommand('settings help')
     expect(stdout).to.contain('Available settings')
     expect(stdout).to.contain('appToken')
     expect(stdout).to.contain('format')
   })
 
-  it('handles invalid commands gracefully', async () => {
-    try {
-      await runCommand('settings')
-      expect.fail('Should have thrown an error for missing action')
-    } catch (error: any) {
-      // Expected to fail - missing required argument
-      expect(error).to.exist
-    }
-  })
-
-  it('handles get command', async () => {
+  it('handles settings get command', async () => {
     try {
       await runCommand('settings get format')
       // Should handle gracefully even if no value is set
@@ -58,9 +51,9 @@ describe('settings', () => {
   })
 
   describe('export-merchants', () => {
-    it('shows help with export-merchants in examples', async () => {
-      const {stdout} = await runCommand('settings --help')
-      expect(stdout).to.contain('export-merchants')
+    it('shows help with export-merchants', async () => {
+      const {stdout} = await runCommand('settings export-merchants --help')
+      expect(stdout).to.contain('Export merchant mappings')
     })
 
     it('warns when no mappings exist (exports empty)', async () => {
@@ -73,21 +66,21 @@ describe('settings', () => {
   })
 
   describe('import-merchants', () => {
-    it('shows help with import-merchants in examples', async () => {
-      const {stdout} = await runCommand('settings --help')
-      expect(stdout).to.contain('import-merchants')
+    it('shows help with import-merchants', async () => {
+      const {stdout} = await runCommand('settings import-merchants --help')
+      expect(stdout).to.contain('Import merchant mappings')
     })
 
     it('requires file path for import', async () => {
       const {error} = await runCommand('settings import-merchants')
       expect(error).to.exist
-      expect(error?.message).to.include('file path')
+      expect(error?.message).to.contain('Missing 1 required arg')
     })
 
     it('errors on non-existent file', async () => {
       const {error} = await runCommand('settings import-merchants /nonexistent/path.json')
       expect(error).to.exist
-      expect(error?.message).to.include('not found')
+      expect(error?.message).to.contain('not found')
     })
 
     it('validates JSON structure', async () => {
@@ -96,7 +89,7 @@ describe('settings', () => {
       try {
         const {error} = await runCommand(`settings import-merchants ${tempFile} -y`)
         expect(error).to.exist
-        expect(error?.message).to.include('Invalid mapping')
+        expect(error?.message).to.contain('Invalid mapping')
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -108,7 +101,7 @@ describe('settings', () => {
       try {
         const {error} = await runCommand(`settings import-merchants ${tempFile} -y`)
         expect(error).to.exist
-        expect(error?.message).to.include('must have')
+        expect(error?.message).to.contain('must have')
       } finally {
         fs.unlinkSync(tempFile)
       }
@@ -135,7 +128,7 @@ describe('settings', () => {
     })
 
     it('supports merge flag', async () => {
-      const {stdout} = await runCommand('settings --help')
+      const {stdout} = await runCommand('settings:import-merchants --help')
       expect(stdout).to.contain('--merge')
       expect(stdout).to.contain('Merge imported')
     })

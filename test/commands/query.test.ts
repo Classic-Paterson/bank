@@ -59,22 +59,17 @@ describe('query', () => {
     expect(stdout).to.be.a('string')
   })
 
-  it('requires an action argument', async () => {
-    const {error} = await runCommand('query')
-    expect(error).to.exist
-    expect(error?.message).to.contain('Missing 1 required arg')
+  it('shows help when no subcommand given', async () => {
+    const {stdout} = await runCommand('query')
+    expect(stdout).to.contain('query:list')
+    expect(stdout).to.contain('query:run')
+    expect(stdout).to.contain('query:save')
   })
 
-  it('rejects invalid action', async () => {
-    const {error} = await runCommand('query invalid')
-    expect(error).to.exist
-    expect(error?.message).to.contain('Expected invalid to be one of')
-  })
-
-  it('requires name for save action', async () => {
+  it('requires name for query save', async () => {
     const {error} = await runCommand('query save')
     expect(error).to.exist
-    expect(error?.message).to.contain('Query name is required')
+    expect(error?.message).to.contain('Missing 1 required arg')
   })
 
   it('requires filters when saving', async () => {
@@ -83,22 +78,22 @@ describe('query', () => {
     expect(error?.message).to.contain('At least one filter is required')
   })
 
-  it('requires name for run action', async () => {
+  it('requires name for query run', async () => {
     const {error} = await runCommand('query run')
     expect(error).to.exist
-    expect(error?.message).to.contain('Query name is required')
+    expect(error?.message).to.contain('Missing 1 required arg')
   })
 
-  it('requires name for delete action', async () => {
+  it('requires name for query delete', async () => {
     const {error} = await runCommand('query delete')
     expect(error).to.exist
-    expect(error?.message).to.contain('Query name is required')
+    expect(error?.message).to.contain('Missing 1 required arg')
   })
 
-  it('requires name for show action', async () => {
+  it('requires name for query show', async () => {
     const {error} = await runCommand('query show')
     expect(error).to.exist
-    expect(error?.message).to.contain('Query name is required')
+    expect(error?.message).to.contain('Missing 1 required arg')
   })
 
   it('handles nonexistent query for run', async () => {

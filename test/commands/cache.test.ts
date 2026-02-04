@@ -22,15 +22,15 @@ describe('cache', () => {
     expect(stdout).to.contain('Cleared transaction cache.')
   })
 
-  it('rejects invalid action', async () => {
-    const {error} = await runCommand('cache invalid')
-    expect(error).to.exist
-    expect(error?.message).to.contain('Expected invalid to be one of: clear, info')
+  it('shows help when no subcommand given', async () => {
+    const {stdout} = await runCommand('cache')
+    expect(stdout).to.contain('cache:clear')
+    expect(stdout).to.contain('cache:info')
   })
 
-  it('requires an action argument', async () => {
-    const {error} = await runCommand('cache')
+  it('shows error for invalid subcommand', async () => {
+    const {error} = await runCommand('cache invalid')
     expect(error).to.exist
-    expect(error?.message).to.contain('Missing 1 required arg')
+    expect(error?.message).to.contain('Unknown subcommand')
   })
 })

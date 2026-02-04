@@ -1,0 +1,1511 @@
+{
+  "commands": {
+    "accounts": {
+      "aliases": [],
+      "args": {
+        "account": {
+          "description": "Account to filter",
+          "name": "account"
+        }
+      },
+      "description": "View account information",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --format csv",
+        "<%= config.bin %> <%= command.id %> --type savings",
+        "<%= config.bin %> <%= command.id %> --details",
+        "<%= config.bin %> <%= command.id %> --total  # Get total balance across all accounts",
+        "<%= config.bin %> <%= command.id %> --type savings --total  # Get total savings balance",
+        "<%= config.bin %> <%= command.id %> --names  # List account names only",
+        "<%= config.bin %> <%= command.id %> --ids    # List account IDs only"
+      ],
+      "flags": {
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table, list, ndjson)",
+          "name": "format",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table",
+            "list",
+            "ndjson"
+          ],
+          "type": "option"
+        },
+        "type": {
+          "char": "t",
+          "description": "Account type to filter (loan, checking, savings, etc.)",
+          "name": "type",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "details": {
+          "char": "d",
+          "description": "Show detailed account info",
+          "name": "details",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "quiet": {
+          "char": "q",
+          "description": "Suppress informational messages (cache status, summaries, tips)",
+          "name": "quiet",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "total": {
+          "description": "Output only the total balance of matching accounts (useful for scripting)",
+          "name": "total",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "names": {
+          "description": "Output only account names (one per line, useful for scripting)",
+          "name": "names",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "ids": {
+          "description": "Output only account IDs (one per line, useful for scripting)",
+          "name": "ids",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "accounts",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "accounts.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "accounts"
+      ]
+    },
+    "cache": {
+      "aliases": [],
+      "args": {},
+      "description": "Manage local cache for accounts and transactions",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hidden": true,
+      "hiddenAliases": [],
+      "id": "cache",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": false,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "cache.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "cache"
+      ]
+    },
+    "categories": {
+      "aliases": [],
+      "args": {},
+      "description": "Show spending by parent & detailed category over a time period",
+      "examples": [
+        "$ bank categories",
+        "$ bank categories --days 90",
+        "$ bank categories --since thisquarter            # This quarter spending",
+        "$ bank categories --since lastquarter --until endoflastmonth  # Last quarter",
+        "$ bank categories --since thisyear              # Year to date by category",
+        "$ bank categories --since 2024-01-01 --until 2024-03-31",
+        "$ bank categories --days 180 -f csv",
+        "$ bank categories --account acc_12345           # Spending for a specific account"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date (YYYY-MM-DD, or: today, yesterday, 7d, 2w, 3m, thisweek, lastweek, thismonth, lastmonth, thisquarter, lastquarter, thisyear, lastyear)",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date (YYYY-MM-DD or shortcut like endoflastmonth, endofthisyear, endoflastyear, default: today)",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "days": {
+          "description": "Number of days to look back (default: 180). Overrides --since if both provided.",
+          "name": "days",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "account": {
+          "char": "a",
+          "description": "Filter to a specific account (by ID or name)",
+          "name": "account",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table, list, ndjson)",
+          "name": "format",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table",
+            "list",
+            "ndjson"
+          ],
+          "type": "option"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "quiet": {
+          "char": "q",
+          "description": "Suppress informational messages (cache status, summaries, tips)",
+          "name": "quiet",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "categories",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "categories.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "categories"
+      ]
+    },
+    "categorise": {
+      "aliases": [],
+      "args": {
+        "merchant": {
+          "description": "Force categorise only transactions whose merchant includes this string",
+          "name": "merchant",
+          "required": false
+        }
+      },
+      "description": "Interactively assign categories to uncategorised transactions and store a merchant map",
+      "examples": [
+        "$ bank categorise --since 2024-01-01",
+        "$ bank categorise --limit 20"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date (YYYY-MM-DD) to scan for uncategorised transactions",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date (YYYY-MM-DD); defaults to today",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "limit": {
+          "char": "l",
+          "description": "Maximum number of transactions to process",
+          "name": "limit",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "categorise",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "categorise.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "categorise"
+      ]
+    },
+    "overview": {
+      "aliases": [],
+      "args": {},
+      "description": "Display a financial dashboard with account balances, spending summary, and recent activity",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --days 30",
+        "<%= config.bin %> <%= command.id %> --since thismonth       # Month to date",
+        "<%= config.bin %> <%= command.id %> --since thisweek        # This week",
+        "<%= config.bin %> <%= command.id %> --since thisquarter     # Quarter to date",
+        "<%= config.bin %> <%= command.id %> --since 2024-01-01 --until 2024-01-31",
+        "<%= config.bin %> <%= command.id %> --refresh",
+        "<%= config.bin %> <%= command.id %> --compare               # Compare with previous period",
+        "<%= config.bin %> <%= command.id %> --since thismonth --compare  # This month vs last month",
+        "<%= config.bin %> <%= command.id %> --account \"Everyday\"    # Overview for a specific account"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date (YYYY-MM-DD, or: today, yesterday, 7d, 2w, 3m, thisweek, lastweek, thismonth, lastmonth, thisquarter, lastquarter, thisyear, lastyear)",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date (YYYY-MM-DD or shortcut like endoflastmonth, endofthisyear, endoflastyear, default: today)",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "days": {
+          "description": "Number of days to look back (default: 30). Overrides --since if both provided.",
+          "name": "days",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "account": {
+          "char": "a",
+          "description": "Filter to a specific account (by ID or name)",
+          "name": "account",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "quiet": {
+          "char": "q",
+          "description": "Suppress informational messages (cache status, summaries, tips)",
+          "name": "quiet",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "compare": {
+          "description": "Compare with previous period (e.g., this month vs last month)",
+          "name": "compare",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "overview",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "overview.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "overview"
+      ]
+    },
+    "query": {
+      "aliases": [],
+      "args": {},
+      "description": "Save, list, and run named transaction queries",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hidden": true,
+      "hiddenAliases": [],
+      "id": "query",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": false,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "query"
+      ]
+    },
+    "refresh": {
+      "aliases": [],
+      "args": {},
+      "description": "Trigger a data refresh for all linked accounts",
+      "examples": [
+        "$ bank refresh"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "refresh",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "refresh.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "refresh"
+      ]
+    },
+    "settings": {
+      "aliases": [],
+      "args": {},
+      "description": "Configure CLI preferences",
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hidden": true,
+      "hiddenAliases": [],
+      "id": "settings",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": false,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings"
+      ]
+    },
+    "sync": {
+      "aliases": [],
+      "args": {},
+      "description": "Sync CSV transaction data to a Google Sheets spreadsheet using OAuth2 (User Account)",
+      "examples": [
+        "$ bank transactions -f csv | bank sync --sheetId <YOUR_SHEET_ID> --oauthClientKey /path/to/client_secret.json",
+        "$ bank transactions -f csv | bank sync --oauthClientKey /path/to/client_secret.json  # (creates a new sheet if none specified)"
+      ],
+      "flags": {
+        "sheetId": {
+          "char": "s",
+          "description": "ID of the Google Sheet to sync to (creates one if not provided)",
+          "name": "sheetId",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "oauthClientKey": {
+          "char": "o",
+          "description": "Path to the OAuth2 client secret JSON file (uses GOOGLE_OAUTH_CLIENT_KEY env var or ~/.bankcli/client_secret.json)",
+          "env": "GOOGLE_OAUTH_CLIENT_KEY",
+          "name": "oauthClientKey",
+          "default": "/Users/reecepaterson/.bankcli/client_secret.json",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "sync",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "sync.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "sync"
+      ]
+    },
+    "transactions": {
+      "aliases": [],
+      "args": {
+        "transaction": {
+          "description": "Transaction ID or description to filter",
+          "name": "transaction"
+        }
+      },
+      "description": "Access transaction data",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --days 30",
+        "<%= config.bin %> <%= command.id %> --since thismonth       # This month so far",
+        "<%= config.bin %> <%= command.id %> --since lastmonth --until endoflastmonth  # Full last month",
+        "<%= config.bin %> <%= command.id %> --since thisweek        # This week (Mon-today)",
+        "<%= config.bin %> <%= command.id %> --since thisweek --until endofthisweek  # Full week (Mon-Sun)",
+        "<%= config.bin %> <%= command.id %> --since lastweek --until endoflastweek  # Full last week (Mon-Sun)",
+        "<%= config.bin %> <%= command.id %> --since thisquarter     # This quarter so far",
+        "<%= config.bin %> <%= command.id %> --since thisyear        # Year to date",
+        "<%= config.bin %> <%= command.id %> --since 2023-01-01 --until 2023-01-31",
+        "<%= config.bin %> <%= command.id %> --minAmount 100 --maxAmount 500",
+        "<%= config.bin %> <%= command.id %> --account acc_12345",
+        "<%= config.bin %> <%= command.id %> --category \"Groceries\"",
+        "<%= config.bin %> <%= command.id %> --type \"TRANSFER\"",
+        "<%= config.bin %> <%= command.id %> --parentCategory \"Utilities\"",
+        "<%= config.bin %> <%= command.id %> --merchant \"Amazon\"",
+        "<%= config.bin %> <%= command.id %> --parentCategory \"Groceries\" --merchant \"Whole Foods\"",
+        "<%= config.bin %> <%= command.id %> --days 30 --count       # Get count of transactions",
+        "<%= config.bin %> <%= command.id %> --merchant \"Countdown\" --days 30 --total  # Total spent at merchant",
+        "<%= config.bin %> <%= command.id %> --direction out         # Show only spending/expenses",
+        "<%= config.bin %> <%= command.id %> --direction in          # Show only income",
+        "<%= config.bin %> <%= command.id %> --direction out --minAmount 50 --maxAmount 200  # Spending between $50-$200",
+        "<%= config.bin %> <%= command.id %> --relative              # Show relative dates (e.g., \"2d ago\")",
+        "<%= config.bin %> <%= command.id %> --days 30 --summary     # Show transactions with spending summary",
+        "<%= config.bin %> <%= command.id %> --days 30 --merchants   # List unique merchants",
+        "<%= config.bin %> <%= command.id %> --parentCategory \"Utilities\" --merchants  # Merchants in a category",
+        "<%= config.bin %> <%= command.id %> --days 30 --top 10       # Top 10 merchants by spending",
+        "<%= config.bin %> <%= command.id %> --since thismonth --top 5 --direction out  # Top 5 spending merchants this month",
+        "<%= config.bin %> <%= command.id %> --days 30 --topCategories 5  # Top 5 spending categories",
+        "<%= config.bin %> <%= command.id %> --since thismonth --topCategories 3  # Top 3 categories this month",
+        "<%= config.bin %> <%= command.id %> --days 30 --stats        # Quick statistics for last 30 days"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date (YYYY-MM-DD, or: today, yesterday, 7d, 2w, 3m, thisweek, lastweek, thismonth, lastmonth, thisquarter, lastquarter, thisyear, lastyear)",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date (YYYY-MM-DD or shortcut like endoflastmonth, endofthisyear, endoflastyear, default: today)",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "days": {
+          "description": "Number of days to look back (default: 7). Overrides --since if both provided.",
+          "name": "days",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "account": {
+          "char": "a",
+          "description": "Account ID to filter transactions",
+          "name": "account",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "category": {
+          "char": "c",
+          "description": "Transaction category to filter",
+          "name": "category",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table, list, ndjson)",
+          "name": "format",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table",
+            "list",
+            "ndjson"
+          ],
+          "type": "option"
+        },
+        "maxAmount": {
+          "description": "Maximum transaction amount (filters by magnitude, e.g., 100 matches both -$100 and +$100)",
+          "name": "maxAmount",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "minAmount": {
+          "description": "Minimum transaction amount (filters by magnitude, e.g., 50 matches both -$50 and +$50)",
+          "name": "minAmount",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "type": {
+          "char": "t",
+          "description": "Transaction type to filter",
+          "name": "type",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "parentCategory": {
+          "char": "p",
+          "description": "Parent category to filter transactions",
+          "name": "parentCategory",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "professional services",
+            "household",
+            "lifestyle",
+            "appearance",
+            "transport",
+            "food",
+            "housing",
+            "education",
+            "health",
+            "utilities"
+          ],
+          "type": "option"
+        },
+        "merchant": {
+          "char": "m",
+          "description": "Merchant name to filter transactions",
+          "name": "merchant",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "details": {
+          "char": "d",
+          "description": "Show detailed transaction info",
+          "name": "details",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "quiet": {
+          "char": "q",
+          "description": "Suppress informational messages (cache status, summaries, tips)",
+          "name": "quiet",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "count": {
+          "description": "Output only the count of matching transactions (useful for scripting)",
+          "name": "count",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "total": {
+          "description": "Output only the total amount of matching transactions (useful for scripting)",
+          "name": "total",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "summary": {
+          "description": "Show spending summary after transaction list (income, spending, net)",
+          "name": "summary",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "direction": {
+          "description": "Filter by direction: \"in\" for income (positive), \"out\" for spending (negative). Combine with --minAmount/--maxAmount to find transactions in a specific range.",
+          "name": "direction",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "in",
+            "out"
+          ],
+          "type": "option"
+        },
+        "relative": {
+          "description": "Show relative dates (e.g., \"2d ago\") instead of absolute dates in table view",
+          "name": "relative",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "merchants": {
+          "description": "List unique merchants from matching transactions (sorted alphabetically)",
+          "name": "merchants",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "top": {
+          "description": "Show top N merchants by spending amount (e.g., --top 10)",
+          "name": "top",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "topCategories": {
+          "description": "Show top N categories by spending amount (e.g., --topCategories 5)",
+          "name": "topCategories",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "stats": {
+          "description": "Show statistics only (count, total, average, date range) without listing transactions",
+          "name": "stats",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "transactions",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "transactions.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "transactions"
+      ]
+    },
+    "transfer": {
+      "aliases": [],
+      "args": {},
+      "description": "Initiate a funds transfer with safety features",
+      "examples": [
+        "$ bank transfer --from \"Everyday Checking\" --to 12-3456-7890123-00 --amount 100.00 --confirm",
+        "$ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --description \"Payment\" --reference \"Invoice 123\" --confirm",
+        "$ bank transfer --from acc_12345 --to 12-3456-7890123-00 --amount 100.00 --dry-run"
+      ],
+      "flags": {
+        "from": {
+          "char": "f",
+          "description": "Source account ID or name",
+          "name": "from",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "to": {
+          "char": "t",
+          "description": "Destination account number (e.g., 12-3456-7890123-00)",
+          "name": "to",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "amount": {
+          "char": "a",
+          "description": "Amount to transfer (in NZD)",
+          "name": "amount",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "description": {
+          "char": "d",
+          "description": "Transfer description",
+          "name": "description",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "reference": {
+          "char": "r",
+          "description": "Transfer reference",
+          "name": "reference",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "confirm": {
+          "char": "c",
+          "description": "Confirm the transfer after reviewing the summary (REQUIRED for actual transfers)",
+          "name": "confirm",
+          "required": false,
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "dry-run": {
+          "description": "Show transfer summary without executing (overrides --confirm)",
+          "name": "dry-run",
+          "required": false,
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "transfer",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "transfer.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "transfer"
+      ]
+    },
+    "cache:clear": {
+      "aliases": [],
+      "args": {},
+      "description": "Clear cached data",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --accounts",
+        "<%= config.bin %> <%= command.id %> --transactions",
+        "<%= config.bin %> <%= command.id %> -y  # Skip confirmation prompt"
+      ],
+      "flags": {
+        "accounts": {
+          "char": "a",
+          "description": "Clear only account cache",
+          "name": "accounts",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "transactions": {
+          "char": "t",
+          "description": "Clear only transaction cache",
+          "name": "transactions",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "yes": {
+          "char": "y",
+          "description": "Skip confirmation prompt",
+          "name": "yes",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "cache:clear",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "cache",
+        "clear.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "cache:clear",
+        "clear:cache"
+      ]
+    },
+    "cache:info": {
+      "aliases": [],
+      "args": {},
+      "description": "Show cache status and statistics",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "cache:info",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "cache",
+        "info.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "cache:info",
+        "info:cache"
+      ]
+    },
+    "query:delete": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Query name to delete",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Delete a saved query",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> groceries"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "query:delete",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query",
+        "delete.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "query:delete",
+        "delete:query"
+      ]
+    },
+    "query:list": {
+      "aliases": [],
+      "args": {},
+      "description": "List all saved queries",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "query:list",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query",
+        "list.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "query:list",
+        "list:query"
+      ]
+    },
+    "query:run": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Query name to run",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Run a saved query",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> groceries",
+        "<%= config.bin %> <%= command.id %> groceries --since thismonth",
+        "<%= config.bin %> <%= command.id %> groceries --since lastquarter",
+        "<%= config.bin %> <%= command.id %> groceries --refresh"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date override (YYYY-MM-DD)",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date override (YYYY-MM-DD)",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table, list, ndjson)",
+          "name": "format",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table",
+            "list",
+            "ndjson"
+          ],
+          "type": "option"
+        },
+        "details": {
+          "char": "d",
+          "description": "Show detailed info",
+          "name": "details",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "quiet": {
+          "char": "q",
+          "description": "Suppress informational messages (cache status, summaries, tips)",
+          "name": "quiet",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "query:run",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query",
+        "run.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "query:run",
+        "run:query"
+      ]
+    },
+    "query:save": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Query name",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Save a named transaction query",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> groceries --merchant \"Countdown,Pak N Save\" --parentCategory food",
+        "<%= config.bin %> <%= command.id %> large-purchases --minAmount 100 --description \"Purchases over $100\""
+      ],
+      "flags": {
+        "account": {
+          "char": "a",
+          "description": "Account ID or name to filter",
+          "name": "account",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "category": {
+          "char": "c",
+          "description": "Transaction category to filter",
+          "name": "category",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "maxAmount": {
+          "description": "Maximum transaction amount (supports decimals, e.g., 99.50)",
+          "name": "maxAmount",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "minAmount": {
+          "description": "Minimum transaction amount (supports decimals, e.g., 10.00)",
+          "name": "minAmount",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "type": {
+          "char": "t",
+          "description": "Transaction type to filter",
+          "name": "type",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "parentCategory": {
+          "char": "p",
+          "description": "Parent category to filter",
+          "name": "parentCategory",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "merchant": {
+          "char": "m",
+          "description": "Merchant name(s) to filter (comma-separated)",
+          "name": "merchant",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "direction": {
+          "description": "Filter by direction: \"in\" for income, \"out\" for spending",
+          "name": "direction",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "in",
+            "out"
+          ],
+          "type": "option"
+        },
+        "description": {
+          "description": "Description for the saved query",
+          "name": "description",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "query:save",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query",
+        "save.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "query:save",
+        "save:query"
+      ]
+    },
+    "query:show": {
+      "aliases": [],
+      "args": {
+        "name": {
+          "description": "Query name to show",
+          "name": "name",
+          "required": true
+        }
+      },
+      "description": "Show details of a saved query",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> groceries"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "query:show",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "query",
+        "show.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "query:show",
+        "show:query"
+      ]
+    },
+    "settings:export-merchants": {
+      "aliases": [],
+      "args": {
+        "file": {
+          "description": "Output file path (outputs to stdout if not provided)",
+          "name": "file",
+          "required": false
+        }
+      },
+      "description": "Export merchant mappings to JSON",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>                    # Export to stdout (pipe to file)",
+        "<%= config.bin %> <%= command.id %> merchants.json     # Export to file"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:export-merchants",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "export-merchants.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:export-merchants",
+        "export-merchants:settings"
+      ]
+    },
+    "settings:get": {
+      "aliases": [],
+      "args": {
+        "key": {
+          "description": "Setting key to get",
+          "name": "key",
+          "options": [
+            "appToken",
+            "userToken",
+            "format",
+            "cacheData",
+            "transferAllowlist",
+            "transferMaxAmount"
+          ],
+          "required": true
+        }
+      },
+      "description": "Get the value of a specific setting",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> appToken",
+        "<%= config.bin %> <%= command.id %> format"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:get",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "get.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:get",
+        "get:settings"
+      ]
+    },
+    "settings:help": {
+      "aliases": [],
+      "args": {},
+      "description": "Show available settings and their types",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:help",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "help.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:help",
+        "help:settings"
+      ]
+    },
+    "settings:import-merchants": {
+      "aliases": [],
+      "args": {
+        "file": {
+          "description": "JSON file to import from",
+          "name": "file",
+          "required": true
+        }
+      },
+      "description": "Import merchant mappings from JSON file",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> merchants.json     # Import from file (replaces existing)",
+        "<%= config.bin %> <%= command.id %> merchants.json -m  # Merge with existing mappings",
+        "<%= config.bin %> <%= command.id %> merchants.json -y  # Skip confirmation prompt"
+      ],
+      "flags": {
+        "yes": {
+          "char": "y",
+          "description": "Skip confirmation prompt",
+          "name": "yes",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "merge": {
+          "char": "m",
+          "description": "Merge imported merchants with existing (default replaces all)",
+          "name": "merge",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:import-merchants",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "import-merchants.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:import-merchants",
+        "import-merchants:settings"
+      ]
+    },
+    "settings:list": {
+      "aliases": [],
+      "args": {},
+      "description": "List all settings and their current values",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:list",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "list.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:list",
+        "list:settings"
+      ]
+    },
+    "settings:reset": {
+      "aliases": [],
+      "args": {
+        "key": {
+          "description": "Setting key to reset",
+          "name": "key",
+          "options": [
+            "appToken",
+            "userToken",
+            "format",
+            "cacheData",
+            "transferAllowlist",
+            "transferMaxAmount"
+          ],
+          "required": true
+        }
+      },
+      "description": "Reset a setting to its default value",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> format",
+        "<%= config.bin %> <%= command.id %> format -y  # Skip confirmation prompt"
+      ],
+      "flags": {
+        "yes": {
+          "char": "y",
+          "description": "Skip confirmation prompt",
+          "name": "yes",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:reset",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "reset.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:reset",
+        "reset:settings"
+      ]
+    },
+    "settings:set": {
+      "aliases": [],
+      "args": {
+        "key": {
+          "description": "Setting key to set",
+          "name": "key",
+          "options": [
+            "appToken",
+            "userToken",
+            "format",
+            "cacheData",
+            "transferAllowlist",
+            "transferMaxAmount"
+          ],
+          "required": true
+        },
+        "value": {
+          "description": "Value to set",
+          "name": "value",
+          "required": true
+        }
+      },
+      "description": "Set a configuration value",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> appToken your_app_token",
+        "<%= config.bin %> <%= command.id %> userToken your_user_token",
+        "<%= config.bin %> <%= command.id %> format table",
+        "<%= config.bin %> <%= command.id %> cacheData true",
+        "<%= config.bin %> <%= command.id %> transferMaxAmount 100000"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "settings:set",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "settings",
+        "set.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "settings:set",
+        "set:settings"
+      ]
+    }
+  },
+  "version": "1.0.0"
+}

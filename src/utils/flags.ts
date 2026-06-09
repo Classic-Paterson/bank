@@ -136,15 +136,29 @@ export function warnIfCacheCorrupted(command: Command, quiet = false): void {
 }
 
 /**
+ * Determine the smart default output format based on the output destination.
+ * When stdout is an interactive terminal (TTY), humans are reading the output,
+ * so a table is friendliest. When output is piped or redirected (scripts, jq,
+ * files), JSON preserves machine-readability and existing workflows.
+ * @returns 'table' for interactive terminals, 'json' otherwise
+ */
+export function ttyAwareDefaultFormat(): OutputFormat {
+  return process.stdout.isTTY ? 'table' : DEFAULT_FORMAT;
+}
+
+/**
  * Resolve the output format from flags and config, with validation.
  * Returns a normalized (lowercase) format string.
+ *
+ * Precedence: --format flag > `format` setting in config > TTY-aware default
+ * (table when a human is at the terminal, json when piped/redirected).
  * @param flagFormat - The format flag value (may be undefined)
- * @param defaultFormat - Fallback format if not specified anywhere (default: from constants)
+ * @param defaultFormat - Fallback format if not specified anywhere (default: TTY-aware)
  * @returns Normalized, validated output format
  * @throws Error if an invalid format is specified
  */
-export function resolveFormat(flagFormat: string | undefined, defaultFormat: OutputFormat = DEFAULT_FORMAT): OutputFormat {
-  const format = flagFormat ?? configService.get('format') ?? defaultFormat;
+export function resolveFormat(flagFormat: string | undefined, defaultFormat?: OutputFormat): OutputFormat {
+  const format = flagFormat ?? configService.get('format') ?? defaultFormat ?? ttyAwareDefaultFormat();
   return validateOutputFormat(format);
 }
 

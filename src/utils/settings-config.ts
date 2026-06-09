@@ -17,10 +17,10 @@ export const VALID_SETTINGS: Record<string, SettingDefinition> = {
     sensitive: true
   },
   format: {
-    description: 'Default output format (json, csv, table, list, ndjson)',
+    description: 'Default output format (json, csv, table, list, ndjson). Unset = table in a terminal, json when piped',
     type: 'string',
     options: [...OUTPUT_FORMATS],
-    default: 'json'
+    default: 'auto'
   },
   cacheData: {
     description: 'Whether to cache API responses locally',

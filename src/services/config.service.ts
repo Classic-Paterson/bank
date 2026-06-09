@@ -5,7 +5,6 @@ import {
   CONFIG_DIR_NAME,
   CONFIG_FILE_NAME,
   SECURE_FILE_MODE,
-  DEFAULT_FORMAT,
 } from '../constants/index.js';
 import { AppConfig } from '../types/index.js';
 
@@ -33,7 +32,10 @@ class ConfigService {
 
   private loadConfig(): AppConfig {
     if (!fs.existsSync(this.configFile)) {
-      return { format: DEFAULT_FORMAT };
+      // Return an empty config rather than injecting defaults.
+      // Defaults are resolved at point of use (e.g. resolveFormat picks a
+      // TTY-aware format), so a fresh install behaves like "nothing set".
+      return {};
     }
 
     try {
@@ -43,7 +45,7 @@ class ConfigService {
       // Config file is corrupted - use defaults and flag the error
       // Commands can check configService.hadLoadError to warn the user
       this._configLoadError = true;
-      return { format: DEFAULT_FORMAT };
+      return {};
     }
   }
 

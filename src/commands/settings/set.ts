@@ -39,6 +39,22 @@ export default class SettingsSet extends Command {
   private validateAndProcessValue(key: string, value: string): string | boolean | number | string[] {
     const setting = VALID_SETTINGS[key];
 
+    // Validate Akahu token formats at set time, so mistakes surface
+    // immediately rather than when a later command tries to use them.
+    if (key === 'appToken' && !value.startsWith('app_token_')) {
+      this.error(
+        `Invalid appToken: Akahu app tokens start with 'app_token_'.\n` +
+        `Check the value at https://my.akahu.nz/developers and try again.`
+      );
+    }
+
+    if (key === 'userToken' && !value.startsWith('user_token_')) {
+      this.error(
+        `Invalid userToken: Akahu user tokens start with 'user_token_'.\n` +
+        `Check the value at https://my.akahu.nz/developers and try again.`
+      );
+    }
+
     if (setting.type === 'boolean') {
       // Handle boolean conversion
       const boolValue = value.toLowerCase();

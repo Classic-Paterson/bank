@@ -11,6 +11,7 @@
     "@oclif/core": "^4.8.0",
     "@oclif/plugin-autocomplete": "^3.2.34",
     "@oclif/plugin-help": "^6",
+    "@oclif/plugin-not-found": "^3.2.87",
     "@oclif/plugin-plugins": "^5",
     "akahu": "^1.15.3",
     "axios": "^1.7.7",
@@ -62,8 +63,23 @@
     "flexibleTaxonomy": true,
     "plugins": [
       "@oclif/plugin-help",
-      "@oclif/plugin-autocomplete"
-    ]
+      "@oclif/plugin-autocomplete",
+      "@oclif/plugin-not-found"
+    ],
+    "topics": {
+      "budget": {
+        "description": "Import a budget and track actual spending against it"
+      },
+      "cache": {
+        "description": "Manage the local transaction/account cache (info, clear)"
+      },
+      "query": {
+        "description": "Save, list, run, and manage named transaction queries"
+      },
+      "settings": {
+        "description": "View and configure CLI settings, tokens, and merchant mappings"
+      }
+    }
   },
   "repository": "lab/bank",
   "scripts": {

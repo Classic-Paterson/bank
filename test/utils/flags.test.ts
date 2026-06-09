@@ -1,5 +1,5 @@
 import {expect} from 'chai'
-import {checkMutuallyExclusiveFlags} from '../../src/utils/flags.js'
+import {checkMutuallyExclusiveFlags, ttyAwareDefaultFormat} from '../../src/utils/flags.js'
 
 describe('flags utilities', () => {
   describe('checkMutuallyExclusiveFlags', () => {
@@ -130,6 +130,24 @@ describe('flags utilities', () => {
         ['--count', true],
       ])
       expect(result).to.be.null
+    })
+  })
+
+  describe('ttyAwareDefaultFormat', () => {
+    const originalIsTTY = process.stdout.isTTY
+
+    afterEach(() => {
+      Object.defineProperty(process.stdout, 'isTTY', {value: originalIsTTY, configurable: true})
+    })
+
+    it('returns table when stdout is an interactive terminal', () => {
+      Object.defineProperty(process.stdout, 'isTTY', {value: true, configurable: true})
+      expect(ttyAwareDefaultFormat()).to.equal('table')
+    })
+
+    it('returns json when output is piped or redirected', () => {
+      Object.defineProperty(process.stdout, 'isTTY', {value: false, configurable: true})
+      expect(ttyAwareDefaultFormat()).to.equal('json')
     })
   })
 })

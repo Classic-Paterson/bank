@@ -54,6 +54,8 @@ The codebase follows a service-oriented architecture with singleton service inst
 - **TransactionProcessingService** (`src/services/transaction-processing.service.ts`): Handles transaction formatting, filtering, and analysis
 - **CacheService** (`src/services/cache.service.ts`): Optional transaction caching
 - **GoogleSheetsService** (`src/services/google-sheets.service.ts`): OAuth2-based Google Sheets integration
+- **InternalTransferService** (`src/services/internal-transfer.service.ts`): Detects transactions between user's own linked accounts via pair-matching (-$X out of A, +$X into B within ±3 days). Exposed via `--noTransfers` flag and the `excludeInternalTransfers` config setting. Without this, `overview`, `transactions --stats`, and `categories` over-count income and spending because every internal move shows up twice.
+- **BudgetService** (`src/services/budget.service.ts`): Imports a budget CSV (same columns as the user's spreadsheet) into `~/.bankcli/budget.csv`, with matchers stored as a sidecar `budget.matchers.json`. Each budget line has a direction (`in`/`out`/`savings`) and a list of matchers that pick out which transactions belong to it.
 
 Services are exported as singletons (e.g., `export const apiService = new ApiService()`).
 

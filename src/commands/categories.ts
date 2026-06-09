@@ -1,12 +1,15 @@
 import { Command, Flags } from '@oclif/core';
 import { Account, EnrichedTransaction } from 'akahu';
 
+import ora from 'ora';
 import { apiService } from '../services/api.service.js';
 import { cacheService } from '../services/cache.service.js';
+import { transactionProcessingService } from '../services/transaction-processing.service.js';
+import { internalTransferService } from '../services/internal-transfer.service.js';
 import { formatOutput, formatCacheAge } from '../utils/output.js';
 import { getErrorMessage } from '../utils/error.js';
 import { parseDateRange } from '../utils/date.js';
-import { refreshFlag, quietFlag, formatFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, resolveFormat, isCacheEnabled } from '../utils/flags.js';
+import { refreshFlag, quietFlag, formatFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, resolveFormat, isCacheEnabled, noTransfersFlag, resolveNoTransfers, getSelfPatterns } from '../utils/flags.js';
 import { DEFAULT_CATEGORY_DAYS_BACK, NZD_DECIMAL_PLACES, UNCATEGORIZED, isExcludedTransactionType } from '../constants/index.js';
 
 export default class Categories extends Command {
@@ -32,6 +35,7 @@ export default class Categories extends Command {
     format: formatFlag,
     refresh: refreshFlag,
     quiet: quietFlag,
+    noTransfers: noTransfersFlag,
   };
 
   async run(): Promise<void> {
@@ -63,6 +67,7 @@ export default class Categories extends Command {
     let fromCache = false;
     try {
       const cacheEnabled = isCacheEnabled();
+      const spinner = ora('Fetching transactions...').start();
 
       // Fetch accounts if filtering by account (needed for name resolution)
       if (flags.account) {
@@ -81,6 +86,7 @@ export default class Categories extends Command {
         cacheEnabled,
         () => apiService.listAllTransactions(since, until)
       );
+      spinner.stop();
       transactions = txResult.transactions;
       fromCache = txResult.fromCache;
       if (fromCache && !flags.quiet) {
@@ -113,6 +119,33 @@ export default class Categories extends Command {
       }
     }
 
+    // Filter internal transfers if --noTransfers is on (uses pair matching on
+    // formatted transactions, so we need formatted copies first).
+    const noTransfers = resolveNoTransfers(flags.noTransfers);
+    let internalIds = new Set<string>();
+    if (noTransfers) {
+      // Accounts may be empty here if --account wasn't used. Fetch if needed.
+      if (accounts.length === 0) {
+        try {
+          const accResult = await cacheService.getAccountsWithCache(
+            flags.refresh,
+            isCacheEnabled(),
+            () => apiService.listAccounts()
+          );
+          accounts = accResult.accounts;
+        } catch {
+          // Non-fatal - internal detection still works without account names
+        }
+      }
+      const formatted = transactionProcessingService.formatTransactions(transactions, accounts);
+      const annotations = internalTransferService.annotate(formatted, { selfPatterns: getSelfPatterns() });
+      internalIds = new Set(
+        [...annotations.entries()]
+          .filter(([, a]) => a.isInternal)
+          .map(([id]) => id)
+      );
+    }
+
     // Prepare months list in chronological order YYYY-MM (derived from date range)
     const months: string[] = [];
     const current = new Date(startParsed.getFullYear(), startParsed.getMonth(), 1);
@@ -136,6 +169,7 @@ export default class Categories extends Command {
     for (const tx of transactions) {
       // Skip internal transfers entirely
       if (isExcludedTransactionType(tx.type)) continue;
+      if (internalIds.has(tx._id)) continue;
 
       const amtNum = Number(tx.amount);
       if (amtNum >= 0) continue; // only outflows

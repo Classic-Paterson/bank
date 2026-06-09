@@ -10,6 +10,8 @@ export const ACCOUNT_CACHE_FILE_NAME = 'account_cache.json';
 export const SAVED_QUERIES_FILE_NAME = 'saved_queries.json';
 export const MERCHANT_MAP_FILE_NAME = 'merchant_map.json';
 export const OAUTH_TOKENS_FILE_NAME = '.bank-oauth-tokens.json';
+export const BUDGET_FILE_NAME = 'budget.csv';
+export const BUDGET_MATCHERS_FILE_NAME = 'budget.matchers.json';
 
 // Default values
 export const DEFAULT_FORMAT = 'json';
@@ -65,8 +67,17 @@ export const PARENT_CATEGORIES = [
   'utilities',
 ] as const;
 
-// Transaction types that should be filtered out from spending analysis
-export const EXCLUDED_TRANSACTION_TYPES = ['TRANSFER'] as const;
+// Transaction types that should be filtered out from spending analysis.
+// - TRANSFER: between user's own accounts, internal moves (also detected via
+//   pair matching in internal-transfer.service).
+// - LOAN: bank-side interest charges/credits on loan accounts (e.g. "LOAN
+//   INTEREST", "INTEREST DEBIT"). These are balance accruals, not cash
+//   outflows; the corresponding cash outflow is the mortgage AP standing
+//   order which is tracked under Mortgage.
+// - INTEREST: bank-side interest credits on savings accounts (positive
+//   amounts that aren't real "income" in the budget sense).
+// - FEE: bank account fees - tiny amounts that shouldn't count as spending.
+export const EXCLUDED_TRANSACTION_TYPES = ['TRANSFER', 'LOAN', 'INTEREST', 'FEE'] as const;
 
 // Default category for transactions without categorization
 export const UNCATEGORIZED = 'Uncategorized';

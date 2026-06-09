@@ -1,7 +1,6 @@
 import { homedir } from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { Account, EnrichedTransaction } from 'akahu';
 import {
   CONFIG_DIR_NAME,
@@ -138,18 +137,6 @@ class CacheService {
       this.lastWriteError = err instanceof Error ? err.message : 'Unknown cache write error';
       return false;
     }
-  }
-
-  private buildTransactionKey(tx: EnrichedTransaction): string {
-    const data = JSON.stringify({
-      _id: tx._id,
-      _account: tx._account,
-      amount: tx.amount,
-      date: tx.date,
-      description: tx.description,
-      updated_at: tx.updated_at,
-    });
-    return crypto.createHash('sha256').update(data).digest('hex');
   }
 
   private isCacheValid(lastUpdate: string | null, ttl: number): boolean {
@@ -339,20 +326,13 @@ class CacheService {
     if (!newTransactions.length) return;
 
     const cache = this.loadTransactionCache();
-    const existingKeys = new Set(
-      cache.transactions.map(tx => this.buildTransactionKey(tx))
-    );
-
-    // Add only new transactions
-    const uniqueNew = newTransactions.filter(
-      tx => !existingKeys.has(this.buildTransactionKey(tx))
-    );
-
-    if (uniqueNew.length > 0) {
-      cache.transactions.push(...uniqueNew);
+    // Upsert by _id: replace existing entries with newer data, add truly new ones
+    const existingById = new Map(cache.transactions.map(tx => [tx._id, tx]));
+    for (const tx of newTransactions) {
+      existingById.set(tx._id, tx);
     }
 
-    // Always update timestamp when cache is refreshed
+    cache.transactions = [...existingById.values()];
     cache.lastUpdate = new Date().toISOString();
     this.saveTransactionCache(cache);
   }
@@ -368,16 +348,14 @@ class CacheService {
   setTransactionCache(transactions: EnrichedTransaction[], startDate?: string, endDate?: string): void {
     const existingCache = this.loadTransactionCache();
 
-    // Build set of existing transaction keys for deduplication
-    const existingKeys = new Set(
-      existingCache.transactions.map(tx => this.buildTransactionKey(tx))
-    );
-
-    // Add only new transactions
-    const newTransactions = transactions.filter(
-      tx => !existingKeys.has(this.buildTransactionKey(tx))
-    );
-    const mergedTransactions = [...existingCache.transactions, ...newTransactions];
+    // Upsert by _id: replace existing entries with newer data, add truly new ones.
+    // Using _id (not a content hash) ensures deduplication survives Akahu refreshes
+    // that update fields like updated_at without changing the transaction identity.
+    const existingById = new Map(existingCache.transactions.map(tx => [tx._id, tx]));
+    for (const tx of transactions) {
+      existingById.set(tx._id, tx);
+    }
+    const mergedTransactions = [...existingById.values()];
 
     // Merge date ranges
     let cachedRanges = existingCache.cachedRanges ?? [];

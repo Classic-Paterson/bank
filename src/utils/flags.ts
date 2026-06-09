@@ -80,6 +80,38 @@ export const detailsFlag = Flags.boolean({
 });
 
 /**
+ * Common flag for excluding internal transfers (between your own linked
+ * accounts) from spending and income totals. When omitted, the default is
+ * taken from config setting `excludeInternalTransfers`.
+ */
+export const noTransfersFlag = Flags.boolean({
+  description: 'Exclude internal transfers between your own accounts (auto-detected via pair matching).',
+  allowNo: true,
+  default: undefined as unknown as boolean,
+});
+
+/**
+ * Resolve the effective value of --noTransfers, honouring the config default
+ * when the flag was not explicitly set on the command line. Returns true if
+ * internal transfers should be filtered out.
+ */
+export function resolveNoTransfers(flagValue: boolean | undefined): boolean {
+  if (typeof flagValue === 'boolean') return flagValue;
+  return configService.get<boolean>('excludeInternalTransfers') ?? false;
+}
+
+/**
+ * Self-patterns configured by the user (description substrings that mark a
+ * transaction as internal even when its counterparty leg is outside the
+ * query window).
+ */
+export function getSelfPatterns(): string[] {
+  const patterns = configService.get<string[]>('selfPatterns');
+  if (!Array.isArray(patterns)) return [];
+  return patterns.filter(p => typeof p === 'string' && p.trim().length > 0);
+}
+
+/**
  * Warn user if config file was corrupted on load.
  * Call at the start of command execution, before any output.
  * @param command - The command instance (for this.warn)

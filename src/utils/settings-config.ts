@@ -36,5 +36,15 @@ export const VALID_SETTINGS: Record<string, SettingDefinition> = {
     description: 'Maximum transfer amount in NZD (safety limit)',
     type: 'number',
     default: 50000
+  },
+  excludeInternalTransfers: {
+    description: 'Default --noTransfers behaviour: exclude internal transfers from overview and stats',
+    type: 'boolean',
+    default: false
+  },
+  selfPatterns: {
+    description: 'Description patterns marking transactions as internal (e.g. account-holder names on standing orders). Comma-separated.',
+    type: 'array',
+    default: []
   }
 };

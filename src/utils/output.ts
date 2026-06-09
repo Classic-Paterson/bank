@@ -1,4 +1,5 @@
 /* eslint-disable camelcase */
+import chalk from 'chalk';
 import Table from 'cli-table3';
 import { Input, stringify } from 'csv-stringify/sync';
 import { TABLE_MAX_COLUMN_WIDTH, OUTPUT_FORMATS, NZD_DECIMAL_PLACES } from '../constants/index.js';
@@ -201,6 +202,24 @@ export function formatCurrency(value: number): string {
 }
 
 /**
+ * Apply chalk coloring to a formatted currency string.
+ * Green for positive/zero, red for negative.
+ */
+export function colorCurrency(amount: number): string {
+    const formatted = formatCurrency(amount);
+    return amount < 0 ? chalk.red(formatted) : chalk.green(formatted);
+}
+
+/**
+ * Print a styled section header with a title and divider line.
+ */
+export function sectionHeader(title: string, log: Logger): void {
+    log('');
+    log(chalk.bold(`  ${title}`));
+    log(chalk.dim('  ' + '─'.repeat(45)));
+}
+
+/**
  * Format and output data in the specified format.
  * Supports arrays of objects (transactions, accounts, etc.) and category expense data.
  * @param data - Array of records or CategoryExpenseData object
@@ -256,11 +275,15 @@ function formatArrayAsTable(data: DataRecord[], log: Logger): void {
 
     const headers = Object.keys(data[0]);
 
-    // Calculate the maximum width for each column
+    // Calculate the maximum width for each column using display values
+    const currencyColumns = new Set(['balance', 'availableBalance', 'amount']);
     const colWidths = headers.map(header => {
         const headerWidth = header.length;
         const maxItemWidth = Math.max(...data.map(item => {
             const value = (item as Record<string, unknown>)[header];
+            if (currencyColumns.has(header) && typeof value === 'number') {
+                return formatCurrency(value).length;
+            }
             return String(value ?? '').length;
         }));
         return Math.min(Math.max(headerWidth, maxItemWidth) + 3, TABLE_MAX_COLUMN_WIDTH);
@@ -276,8 +299,8 @@ function formatArrayAsTable(data: DataRecord[], log: Logger): void {
         const record = item as Record<string, unknown>;
         const row = headers.map(header => {
             const value = record[header];
-            if ((header === 'balance' || header === 'availableBalance' || header === 'amount') && typeof value === 'number') {
-                return formatCurrency(value);
+            if (currencyColumns.has(header) && typeof value === 'number') {
+                return { content: colorCurrency(value), hAlign: 'right' as const };
             }
             // Convert to string for cli-table3 compatibility
             if (value === null || value === undefined) return '';
@@ -302,10 +325,10 @@ function formatExpensesByCategoryAsTable(data: CategoryExpenseData, log: Logger)
     });
 
     for (const category of Object.keys(expenses_by_category)) {
-        const row: string[] = [category];
+        const row: (string | { content: string; hAlign: 'right' })[] = [category];
         for (const month of months) {
             const amount = expenses_by_category[category][month] ?? 0;
-            row.push(formatCurrency(amount));
+            row.push({ content: colorCurrency(amount), hAlign: 'right' });
         }
         table.push(row);
     }
@@ -386,7 +409,7 @@ function formatArrayAsList(data: DataRecord[], log: Logger): void {
         for (const [key, value] of Object.entries(item)) {
             let displayValue: unknown = value;
             if ((key === 'balance' || key === 'availableBalance' || key === 'amount') && typeof value === 'number') {
-                displayValue = formatCurrency(value);
+                displayValue = colorCurrency(value);
             }
             // Handle null/undefined and Date for display
             if (displayValue === null || displayValue === undefined) {

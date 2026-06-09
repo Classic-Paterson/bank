@@ -102,6 +102,37 @@
         "accounts"
       ]
     },
+    "budget": {
+      "aliases": [],
+      "args": {},
+      "description": "Track actuals against your imported budget.",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>                          # show status for the default window",
+        "<%= config.bin %> <%= command.id %> import ~/Downloads/budget.csv",
+        "<%= config.bin %> <%= command.id %> show",
+        "<%= config.bin %> <%= command.id %> status --since thismonth",
+        "<%= config.bin %> <%= command.id %> matcher add cash-expenses::groceries --field category --pattern grocery"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "budget",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": false,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "budget.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "budget"
+      ]
+    },
     "cache": {
       "aliases": [],
       "args": {},
@@ -200,6 +231,12 @@
           "description": "Suppress informational messages (cache status, summaries, tips)",
           "name": "quiet",
           "allowNo": false,
+          "type": "boolean"
+        },
+        "noTransfers": {
+          "description": "Exclude internal transfers between your own accounts (auto-detected via pair matching).",
+          "name": "noTransfers",
+          "allowNo": true,
           "type": "boolean"
         }
       },
@@ -347,6 +384,12 @@
           "description": "Compare with previous period (e.g., this month vs last month)",
           "name": "compare",
           "allowNo": false,
+          "type": "boolean"
+        },
+        "noTransfers": {
+          "description": "Exclude internal transfers between your own accounts (auto-detected via pair matching).",
+          "name": "noTransfers",
+          "allowNo": true,
           "type": "boolean"
         }
       },
@@ -721,6 +764,12 @@
           "name": "stats",
           "allowNo": false,
           "type": "boolean"
+        },
+        "noTransfers": {
+          "description": "Exclude internal transfers between your own accounts (auto-detected via pair matching).",
+          "name": "noTransfers",
+          "allowNo": true,
+          "type": "boolean"
         }
       },
       "hasDynamicHelp": false,
@@ -828,6 +877,182 @@
       "aliasPermutations": [],
       "permutations": [
         "transfer"
+      ]
+    },
+    "budget:import": {
+      "aliases": [],
+      "args": {
+        "path": {
+          "description": "Path to budget CSV",
+          "name": "path",
+          "required": true
+        }
+      },
+      "description": "Import a budget CSV (Category, Subcategory, Annual, Monthly, Fortnightly, Weekly, Notes).",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> ~/Downloads/Personal\\ Budget.csv"
+      ],
+      "flags": {},
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "budget:import",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "budget",
+        "import.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "budget:import",
+        "import:budget"
+      ]
+    },
+    "budget:show": {
+      "aliases": [],
+      "args": {},
+      "description": "Show the active budget definition and which lines have matchers configured.",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>",
+        "<%= config.bin %> <%= command.id %> --unmatched"
+      ],
+      "flags": {
+        "unmatched": {
+          "description": "Only show lines that have no matchers configured",
+          "name": "unmatched",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "budget:show",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "budget",
+        "show.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "budget:show",
+        "show:budget"
+      ]
+    },
+    "budget:status": {
+      "aliases": [],
+      "args": {},
+      "description": "Show actuals vs budget for a date window, with pace indicators.",
+      "examples": [
+        "<%= config.bin %> <%= command.id %>                       # Last 30 days",
+        "<%= config.bin %> <%= command.id %> --since thismonth     # Month to date",
+        "<%= config.bin %> <%= command.id %> --since lastmonth --until endoflastmonth",
+        "<%= config.bin %> <%= command.id %> --format csv          # CSV for spreadsheet",
+        "<%= config.bin %> <%= command.id %> --unmatched           # Show only lines without matchers"
+      ],
+      "flags": {
+        "since": {
+          "char": "s",
+          "description": "Start date (YYYY-MM-DD, or: today, yesterday, 7d, 2w, 3m, thisweek, lastweek, thismonth, lastmonth, thisquarter, lastquarter, thisyear, lastyear)",
+          "name": "since",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "until": {
+          "char": "u",
+          "description": "End date (YYYY-MM-DD or shortcut like endoflastmonth, endofthisyear, endoflastyear, default: today)",
+          "name": "until",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "days": {
+          "description": "Number of days to look back (default: 30). Overrides --since if both provided.",
+          "name": "days",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "format": {
+          "char": "f",
+          "description": "Output format (json, csv, table, list, ndjson)",
+          "name": "format",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "json",
+            "csv",
+            "table",
+            "list",
+            "ndjson"
+          ],
+          "type": "option"
+        },
+        "refresh": {
+          "char": "r",
+          "description": "Force refresh from API (bypass cache)",
+          "name": "refresh",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "quiet": {
+          "char": "q",
+          "description": "Suppress informational messages (cache status, summaries, tips)",
+          "name": "quiet",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "noTransfers": {
+          "description": "Exclude internal transfers between your own accounts (auto-detected via pair matching).",
+          "name": "noTransfers",
+          "allowNo": true,
+          "type": "boolean"
+        },
+        "unmatched": {
+          "description": "Show only budget lines whose actual is $0 (so you can spot missing matchers or unused lines)",
+          "name": "unmatched",
+          "allowNo": false,
+          "type": "boolean"
+        },
+        "grouped": {
+          "description": "Group by category header rows (default for table view)",
+          "name": "grouped",
+          "allowNo": true,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "budget:status",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "budget",
+        "status.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "budget:status",
+        "status:budget"
       ]
     },
     "cache:clear": {
@@ -1260,7 +1485,9 @@
             "format",
             "cacheData",
             "transferAllowlist",
-            "transferMaxAmount"
+            "transferMaxAmount",
+            "excludeInternalTransfers",
+            "selfPatterns"
           ],
           "required": true
         }
@@ -1414,7 +1641,9 @@
             "format",
             "cacheData",
             "transferAllowlist",
-            "transferMaxAmount"
+            "transferMaxAmount",
+            "excludeInternalTransfers",
+            "selfPatterns"
           ],
           "required": true
         }
@@ -1466,7 +1695,9 @@
             "format",
             "cacheData",
             "transferAllowlist",
-            "transferMaxAmount"
+            "transferMaxAmount",
+            "excludeInternalTransfers",
+            "selfPatterns"
           ],
           "required": true
         },
@@ -1504,6 +1735,130 @@
       "permutations": [
         "settings:set",
         "set:settings"
+      ]
+    },
+    "budget:matcher:add": {
+      "aliases": [],
+      "args": {
+        "lineId": {
+          "description": "Budget line id (run `bank budget show` to find ids)",
+          "name": "lineId",
+          "required": true
+        }
+      },
+      "description": "Add a matcher to a budget line. Matchers are case-insensitive substring matches against a transaction field.",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> cash-expenses::groceries --field category --pattern \"supermarkets and grocery stores\"",
+        "<%= config.bin %> <%= command.id %> direct-debit-bills::land-cruiser --field particulars --pattern LandCruser",
+        "<%= config.bin %> <%= command.id %> direct-debit-bills::power --field merchant --pattern Powershop",
+        "<%= config.bin %> <%= command.id %> income::reece-salary --field description --pattern \"Salary iPayroll\""
+      ],
+      "flags": {
+        "field": {
+          "description": "Which transaction field to match against",
+          "name": "field",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "options": [
+            "parentCategory",
+            "category",
+            "merchant",
+            "description",
+            "particulars",
+            "account",
+            "type"
+          ],
+          "type": "option"
+        },
+        "pattern": {
+          "description": "Case-insensitive substring to look for",
+          "name": "pattern",
+          "required": true,
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "budget:matcher:add",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "budget",
+        "matcher",
+        "add.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "budget:matcher:add",
+        "matcher:budget:add",
+        "matcher:add:budget",
+        "budget:add:matcher",
+        "add:budget:matcher",
+        "add:matcher:budget"
+      ]
+    },
+    "budget:matcher:remove": {
+      "aliases": [],
+      "args": {
+        "lineId": {
+          "description": "Budget line id",
+          "name": "lineId",
+          "required": true
+        }
+      },
+      "description": "Remove a matcher from a budget line by index, or all matchers with --all.",
+      "examples": [
+        "<%= config.bin %> <%= command.id %> cash-expenses::groceries --index 0",
+        "<%= config.bin %> <%= command.id %> cash-expenses::groceries --all"
+      ],
+      "flags": {
+        "index": {
+          "description": "Matcher index to remove (0-based)",
+          "name": "index",
+          "hasDynamicHelp": false,
+          "multiple": false,
+          "type": "option"
+        },
+        "all": {
+          "description": "Remove all matchers from this line",
+          "name": "all",
+          "allowNo": false,
+          "type": "boolean"
+        }
+      },
+      "hasDynamicHelp": false,
+      "hiddenAliases": [],
+      "id": "budget:matcher:remove",
+      "pluginAlias": "bank",
+      "pluginName": "bank",
+      "pluginType": "core",
+      "strict": true,
+      "enableJsonFlag": false,
+      "isESM": true,
+      "relativePath": [
+        "dist",
+        "commands",
+        "budget",
+        "matcher",
+        "remove.js"
+      ],
+      "aliasPermutations": [],
+      "permutations": [
+        "budget:matcher:remove",
+        "matcher:budget:remove",
+        "matcher:remove:budget",
+        "budget:remove:matcher",
+        "remove:budget:matcher",
+        "remove:matcher:budget"
       ]
     }
   },

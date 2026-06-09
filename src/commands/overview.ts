@@ -5,12 +5,14 @@ import chalk from 'chalk';
 import { apiService } from '../services/api.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { transactionProcessingService } from '../services/transaction-processing.service.js';
-import { FormattedTransaction } from '../types/index.js';
+import { internalTransferService } from '../services/internal-transfer.service.js';
+import { budgetService } from '../services/budget.service.js';
+import { FormattedTransaction, BudgetActual } from '../types/index.js';
 import { isExcludedTransactionType, DEFAULT_OVERVIEW_DAYS_BACK, UNCATEGORIZED } from '../constants/index.js';
-import { formatRelativeTime, formatCurrency, formatCacheAge } from '../utils/output.js';
+import { formatRelativeTime, formatCurrency, colorCurrency, formatCacheAge, sectionHeader } from '../utils/output.js';
 import { getErrorMessage } from '../utils/error.js';
 import { parseDateRange, formatDateISO } from '../utils/date.js';
-import { refreshFlag, quietFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, isCacheEnabled } from '../utils/flags.js';
+import { refreshFlag, quietFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, isCacheEnabled, noTransfersFlag, resolveNoTransfers, getSelfPatterns } from '../utils/flags.js';
 
 export default class Overview extends Command {
   static description = 'Display a financial dashboard with account balances, spending summary, and recent activity';
@@ -40,15 +42,56 @@ export default class Overview extends Command {
       description: 'Compare with previous period (e.g., this month vs last month)',
       default: false,
     }),
+    noTransfers: noTransfersFlag,
   };
 
   /**
-   * Apply chalk coloring to a formatted currency string.
-   * Green for positive, red for negative.
+   * Render a compact budget progress block - shows expense lines with how
+   * actuals compare to expected (pro-rated for the window). Sorted by the
+   * largest variance so over/under-budget items surface first.
    */
-  private colorCurrency(amount: number): string {
-    const formatted = formatCurrency(amount);
-    return amount < 0 ? chalk.red(formatted) : chalk.green(formatted);
+  private renderBudgetProgress(actuals: BudgetActual[]): void {
+    // Focus on out (expense) lines for the dashboard. Savings/income lines
+    // are handled by the dedicated `bank budget` view.
+    const expenseLines = actuals.filter(a => a.line.direction === 'out');
+    if (expenseLines.length === 0) return;
+
+    // Surface the most actionable lines: biggest absolute variance OR over
+    // pace. Cap at 8 lines so the dashboard stays scannable.
+    const sortedByConcern = [...expenseLines].sort((a, b) => {
+      // Over-budget first (pace > 1), sorted by variance magnitude
+      const aOver = a.paceRatio > 1.05;
+      const bOver = b.paceRatio > 1.05;
+      if (aOver !== bOver) return aOver ? -1 : 1;
+      return Math.abs(b.actual - b.expected) - Math.abs(a.actual - a.expected);
+    }).slice(0, 8);
+
+    this.log(chalk.bold('  BUDGET PROGRESS'));
+    const nameWidth = Math.min(
+      28,
+      Math.max(...sortedByConcern.map(a => a.line.subcategory.length), 10)
+    );
+    for (const a of sortedByConcern) {
+      const name = a.line.subcategory.length > nameWidth
+        ? a.line.subcategory.slice(0, nameWidth - 1) + '…'
+        : a.line.subcategory.padEnd(nameWidth);
+      const expected = a.expected > 0 ? `$${a.expected.toFixed(0)}` : '--';
+      const actual = `$${a.actual.toFixed(0)}`;
+      const pacePct = a.expected > 0 ? `${Math.round(a.paceRatio * 100)}%` : '--';
+      let paceColored: string;
+      if (a.expected === 0) paceColored = chalk.dim(pacePct);
+      else if (a.paceRatio > 1.2) paceColored = chalk.red(pacePct);
+      else if (a.paceRatio > 1.05) paceColored = chalk.yellow(pacePct);
+      else paceColored = chalk.green(pacePct);
+
+      // Visual bar capped at 1.5x for display
+      const barFill = Math.min(20, Math.round((a.paceRatio || 0) * 20));
+      const barColor = a.paceRatio > 1.05 ? chalk.red : a.paceRatio > 0.95 ? chalk.yellow : chalk.green;
+      const bar = barColor('█'.repeat(barFill)) + chalk.dim('░'.repeat(Math.max(0, 20 - barFill)));
+
+      this.log(`  ${bar} ${actual.padStart(7)} / ${expected.padStart(7)}  ${paceColored.padStart(4)}  ${name}`);
+    }
+    this.log('');
   }
 
   /**
@@ -159,6 +202,15 @@ export default class Overview extends Command {
       // Format transactions for analysis
       const formattedTransactions = transactionProcessingService.formatTransactions(transactions, accResult.accounts);
 
+      // Detect internal transfers (between user's own linked accounts) and
+      // optionally filter them out of spending/income calculations.
+      const noTransfers = resolveNoTransfers(flags.noTransfers);
+      const internalAnnotations = noTransfers
+        ? internalTransferService.annotate(formattedTransactions, { selfPatterns: getSelfPatterns() })
+        : new Map();
+      const isInternal = (tx: FormattedTransaction) =>
+        noTransfers && internalAnnotations.get(tx.id)?.isInternal === true;
+
       // Fetch previous period data if comparing
       let prevSpending = 0;
       let prevIncome = 0;
@@ -188,17 +240,22 @@ export default class Overview extends Command {
         }
 
         const prevFormattedTx = transactionProcessingService.formatTransactions(prevTransactions, accResult.accounts);
+        const prevInternalAnnotations = noTransfers
+          ? internalTransferService.annotate(prevFormattedTx, { selfPatterns: getSelfPatterns() })
+          : new Map();
+        const prevIsInternal = (tx: FormattedTransaction) =>
+          noTransfers && prevInternalAnnotations.get(tx.id)?.isInternal === true;
 
         prevSpending = prevFormattedTx
-          .filter((tx: FormattedTransaction) => tx.amount < 0 && !isExcludedTransactionType(tx.type))
+          .filter((tx: FormattedTransaction) => tx.amount < 0 && !isExcludedTransactionType(tx.type) && !prevIsInternal(tx))
           .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
 
         prevIncome = prevFormattedTx
-          .filter((tx: FormattedTransaction) => tx.amount > 0 && !isExcludedTransactionType(tx.type))
+          .filter((tx: FormattedTransaction) => tx.amount > 0 && !isExcludedTransactionType(tx.type) && !prevIsInternal(tx))
           .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
 
         prevCategorySpending = prevFormattedTx
-          .filter((tx: FormattedTransaction) => tx.amount < 0 && !isExcludedTransactionType(tx.type) && tx.parentCategory)
+          .filter((tx: FormattedTransaction) => tx.amount < 0 && !isExcludedTransactionType(tx.type) && !prevIsInternal(tx) && tx.parentCategory)
           .reduce((acc: Record<string, number>, tx: FormattedTransaction) => {
             const category = tx.parentCategory || UNCATEGORIZED;
             acc[category] = (acc[category] || 0) + Math.abs(tx.amount);
@@ -222,7 +279,8 @@ export default class Overview extends Command {
       const spending = formattedTransactions
         .filter((tx: FormattedTransaction) =>
           tx.amount < 0 &&
-          !isExcludedTransactionType(tx.type)
+          !isExcludedTransactionType(tx.type) &&
+          !isInternal(tx)
         )
         .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
 
@@ -230,7 +288,8 @@ export default class Overview extends Command {
       const income = formattedTransactions
         .filter((tx: FormattedTransaction) =>
           tx.amount > 0 &&
-          !isExcludedTransactionType(tx.type)
+          !isExcludedTransactionType(tx.type) &&
+          !isInternal(tx)
         )
         .reduce((sum: number, tx: FormattedTransaction) => sum + tx.amount, 0);
 
@@ -243,6 +302,7 @@ export default class Overview extends Command {
         .filter((tx: FormattedTransaction) =>
           tx.amount < 0 &&
           !isExcludedTransactionType(tx.type) &&
+          !isInternal(tx) &&
           tx.parentCategory
         )
         .reduce((acc: Record<string, number>, tx: FormattedTransaction) => {
@@ -265,12 +325,10 @@ export default class Overview extends Command {
       // DISPLAY OUTPUT
       // ═══════════════════════════════════════════════════════════════
 
-      this.log('');
       const headerTitle = selectedAccount
-        ? `  FINANCIAL OVERVIEW: ${selectedAccount.name}`
-        : '  FINANCIAL OVERVIEW';
-      this.log(chalk.bold(headerTitle));
-      this.log(chalk.dim('  ─────────────────────────────────────────────'));
+        ? `FINANCIAL OVERVIEW: ${selectedAccount.name}`
+        : 'FINANCIAL OVERVIEW';
+      sectionHeader(headerTitle, this.log.bind(this));
 
       if (fromCache && !flags.quiet) {
         this.log(chalk.dim(`  ${formatCacheAge(cacheAge)}`));
@@ -279,7 +337,7 @@ export default class Overview extends Command {
 
       // Net Worth Section
       this.log(chalk.bold('  NET WORTH'));
-      this.log(`  ${this.colorCurrency(totalBalance)} ${chalk.dim(`across ${accountCount} accounts`)}`);
+      this.log(`  ${colorCurrency(totalBalance)} ${chalk.dim(`across ${accountCount} accounts`)}`);
       this.log('');
 
       // Account breakdown by type
@@ -293,28 +351,34 @@ export default class Overview extends Command {
           this.log(`    ${acc.name}${padding}${balance >= 0 ? chalk.green(balanceStr) : chalk.red(balanceStr)}`);
         }
         this.log(chalk.dim(`    ${'─'.repeat(38)}`));
-        this.log(`    ${chalk.bold('Subtotal')}${' '.repeat(22)}${this.colorCurrency(typeTotal)}`);
+        this.log(`    ${chalk.bold('Subtotal')}${' '.repeat(22)}${colorCurrency(typeTotal)}`);
         this.log('');
       }
 
       // This Period Section
-      this.log(chalk.dim('  ─────────────────────────────────────────────'));
       // Calculate days in range for display
       const daysInRange = Math.ceil((endParsed.getTime() - startParsed.getTime()) / (1000 * 60 * 60 * 24));
       const periodLabel = daysInRange === 1 ? '1 day' : `${daysInRange} days`;
-      this.log(chalk.bold(`  THIS PERIOD`) + chalk.dim(` (${sinceDate} to ${untilDate}, ${periodLabel})`));
+      sectionHeader(`THIS PERIOD (${sinceDate} to ${untilDate}, ${periodLabel})`, this.log.bind(this));
       this.log('');
       if (flags.compare) {
         const incomeChange = this.formatChange(income, prevIncome, false);
         const spendingChange = this.formatChange(Math.abs(spending), Math.abs(prevSpending), true);
         const netChange = this.formatChange(income + spending, prevIncome + prevSpending, false);
-        this.log(`  Income:    ${this.colorCurrency(income)}  ${incomeChange}`);
-        this.log(`  Spending:  ${this.colorCurrency(spending)}  ${spendingChange}`);
-        this.log(`  Net:       ${this.colorCurrency(income + spending)}  ${netChange}`);
+        this.log(`  Income:    ${colorCurrency(income)}  ${incomeChange}`);
+        this.log(`  Spending:  ${colorCurrency(spending)}  ${spendingChange}`);
+        this.log(`  Net:       ${colorCurrency(income + spending)}  ${netChange}`);
       } else {
-        this.log(`  Income:    ${this.colorCurrency(income)}`);
-        this.log(`  Spending:  ${this.colorCurrency(spending)}`);
-        this.log(`  Net:       ${this.colorCurrency(income + spending)}`);
+        this.log(`  Income:    ${colorCurrency(income)}`);
+        this.log(`  Spending:  ${colorCurrency(spending)}`);
+        this.log(`  Net:       ${colorCurrency(income + spending)}`);
+      }
+
+      if (noTransfers && !flags.quiet) {
+        const summary = internalTransferService.summarize(formattedTransactions, internalAnnotations);
+        if (summary.count > 0) {
+          this.log(chalk.dim(`  (excluded ${summary.count} internal transfer legs, ~${formatCurrency(summary.absTotal)} between your accounts)`));
+        }
       }
 
       // Daily spending rate indicator
@@ -342,8 +406,18 @@ export default class Overview extends Command {
       }
       this.log('');
 
-      // Top Spending Categories
-      if (topCategories.length > 0) {
+      // Budget progress takes priority over generic top-spending when a
+      // budget has been imported.
+      const budget = budgetService.load();
+      if (budget && budget.lines.length > 0) {
+        const { actuals } = budgetService.computeActuals(
+          budget.lines,
+          formattedTransactions,
+          startParsed,
+          endParsed
+        );
+        this.renderBudgetProgress(actuals);
+      } else if (topCategories.length > 0) {
         this.log(chalk.bold('  TOP SPENDING'));
         const maxSpend = topCategories[0]?.[1] ?? 0;
         for (const [category, amount] of topCategories) {
@@ -363,20 +437,19 @@ export default class Overview extends Command {
 
       // Pending Transactions
       if (pendingTransactions.length > 0) {
-        this.log(chalk.dim('  ─────────────────────────────────────────────'));
-        this.log(chalk.bold('  PENDING'));
+        sectionHeader('PENDING', this.log.bind(this));
         this.log(`  ${pendingTransactions.length} transactions (${formatCurrency(pendingTotal)})`);
         this.log('');
       }
 
-      // Recent Activity (last 5 transactions)
+      // Recent Activity (last 5 transactions) - excludes internals when --noTransfers is on
       const recentTransactions = formattedTransactions
+        .filter((tx: FormattedTransaction) => !isInternal(tx))
         .sort((a: FormattedTransaction, b: FormattedTransaction) => b.date.getTime() - a.date.getTime())
         .slice(0, 5);
 
       if (recentTransactions.length > 0) {
-        this.log(chalk.dim('  ─────────────────────────────────────────────'));
-        this.log(chalk.bold('  RECENT ACTIVITY'));
+        sectionHeader('RECENT ACTIVITY', this.log.bind(this));
         for (const tx of recentTransactions) {
           const timeAgo = formatRelativeTime(tx.date);
           const desc = tx.merchant || tx.description;
@@ -390,8 +463,7 @@ export default class Overview extends Command {
 
       // Cache Status (only show when not in quiet mode)
       if (cacheEnabled && !flags.quiet) {
-        this.log(chalk.dim('  ─────────────────────────────────────────────'));
-        this.log(chalk.dim('  CACHE STATUS'));
+        sectionHeader('CACHE STATUS', this.log.bind(this));
         const txLastUpdate = cacheInfo.transactions.lastUpdate
           ? formatRelativeTime(new Date(cacheInfo.transactions.lastUpdate))
           : 'never';

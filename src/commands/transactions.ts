@@ -1,13 +1,15 @@
 import { Args, Command, Flags } from '@oclif/core';
 import { EnrichedTransaction } from 'akahu';
 
-import { formatOutput, formatCurrency, formatCacheAge } from '../utils/output.js';
+import ora from 'ora';
+import { formatOutput, formatCurrency, colorCurrency, formatCacheAge, sectionHeader } from '../utils/output.js';
 import { parseDateRange, validateAmountRange } from '../utils/date.js';
 import { getErrorMessage } from '../utils/error.js';
-import { refreshFlag, quietFlag, formatFlag, amountFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, resolveFormat, isCacheEnabled, checkMutuallyExclusiveFlags } from '../utils/flags.js';
+import { refreshFlag, quietFlag, formatFlag, amountFlag, dateFilterFlags, warnIfConfigCorrupted, warnIfCacheCorrupted, resolveFormat, isCacheEnabled, checkMutuallyExclusiveFlags, noTransfersFlag, resolveNoTransfers, getSelfPatterns } from '../utils/flags.js';
 import { apiService } from '../services/api.service.js';
 import { cacheService } from '../services/cache.service.js';
 import { transactionProcessingService } from '../services/transaction-processing.service.js';
+import { internalTransferService } from '../services/internal-transfer.service.js';
 import { FormattedTransaction, TransactionFilter } from '../types/index.js';
 import { DEFAULT_TRANSACTION_DAYS_BACK, PARENT_CATEGORIES, NZD_DECIMAL_PLACES, UNCATEGORIZED, isExcludedTransactionType } from '../constants/index.js';
 
@@ -125,6 +127,7 @@ export default class Transactions extends Command {
       description: 'Show statistics only (count, total, average, date range) without listing transactions',
       default: false,
     }),
+    noTransfers: noTransfersFlag,
   };
 
   public async run(): Promise<void> {
@@ -182,6 +185,7 @@ export default class Transactions extends Command {
       const cacheEnabled = isCacheEnabled();
 
       // Fetch transactions with caching
+      const spinner = ora('Fetching transactions...').start();
       const txResult = await cacheService.getTransactionsWithCache(
         sinceDate,
         untilDate,
@@ -204,6 +208,7 @@ export default class Transactions extends Command {
         () => apiService.listAccounts()
       );
       const accounts = accResult.accounts;
+      spinner.stop();
       const fromCache = txResult.fromCache || accResult.fromCache;
       // Use the oldest cache age for display (whichever was cached longer ago)
       const cacheAge = txResult.cacheAge || accResult.cacheAge;
@@ -216,7 +221,17 @@ export default class Transactions extends Command {
       }
       
       // Map transactions to desired output format using the service
-      const transactions = transactionProcessingService.formatTransactions(transactionsDataFiltered, accounts);
+      let transactions = transactionProcessingService.formatTransactions(transactionsDataFiltered, accounts);
+
+      // Optionally exclude internal transfers between user's own accounts.
+      // We compute annotations on the full set (so pair matching has full
+      // context) before applying any user filters.
+      const noTransfers = resolveNoTransfers(flags.noTransfers);
+      if (noTransfers) {
+        transactions = internalTransferService.filterOutInternal(transactions, {
+          selfPatterns: getSelfPatterns(),
+        });
+      }
 
       // Build filter object from flags
       const filters: TransactionFilter = {
@@ -428,21 +443,20 @@ export default class Transactions extends Command {
         const earliestDate = dates.length > 0 ? new Date(Math.min(...dates)).toISOString().split('T')[0] : sinceDate;
         const latestDate = dates.length > 0 ? new Date(Math.max(...dates)).toISOString().split('T')[0] : untilDate;
 
-        this.log('Transaction Statistics');
-        this.log('─────────────────────────────────────');
-        this.log(`Period:          ${earliestDate} to ${latestDate}`);
-        this.log(`Count:           ${count} transaction${count === 1 ? '' : 's'}`);
-        this.log(`Income:          ${formatCurrency(income)}`);
-        this.log(`Spending:        ${formatCurrency(spending)}`);
-        this.log(`Net:             ${formatCurrency(income + spending)}`);
-        this.log('─────────────────────────────────────');
-        this.log(`Total:           ${formatCurrency(total)}`);
-        this.log(`Average:         ${formatCurrency(average)}`);
-        this.log(`Min:             ${formatCurrency(minAmount)}`);
-        this.log(`Max:             ${formatCurrency(maxAmount)}`);
-        this.log('─────────────────────────────────────');
-        this.log(`Merchants:       ${uniqueMerchants}`);
-        this.log(`Categories:      ${uniqueCategories}`);
+        sectionHeader('Transaction Statistics', this.log.bind(this));
+        this.log(`  Period:          ${earliestDate} to ${latestDate}`);
+        this.log(`  Count:           ${count} transaction${count === 1 ? '' : 's'}`);
+        this.log(`  Income:          ${colorCurrency(income)}`);
+        this.log(`  Spending:        ${colorCurrency(spending)}`);
+        this.log(`  Net:             ${colorCurrency(income + spending)}`);
+        sectionHeader('Amounts', this.log.bind(this));
+        this.log(`  Total:           ${colorCurrency(total)}`);
+        this.log(`  Average:         ${colorCurrency(average)}`);
+        this.log(`  Min:             ${colorCurrency(minAmount)}`);
+        this.log(`  Max:             ${colorCurrency(maxAmount)}`);
+        sectionHeader('Breakdown', this.log.bind(this));
+        this.log(`  Merchants:       ${uniqueMerchants}`);
+        this.log(`  Categories:      ${uniqueCategories}`);
         return;
       }
 
@@ -470,11 +484,10 @@ export default class Transactions extends Command {
 
         const net = income + spending;
 
-        this.log('');
-        this.log('Summary:');
-        this.log(`  Income:   ${formatCurrency(income)}`);
-        this.log(`  Spending: ${formatCurrency(spending)}`);
-        this.log(`  Net:      ${formatCurrency(net)}`);
+        sectionHeader('Summary', this.log.bind(this));
+        this.log(`  Income:   ${colorCurrency(income)}`);
+        this.log(`  Spending: ${colorCurrency(spending)}`);
+        this.log(`  Net:      ${colorCurrency(net)}`);
       }
 
       if (format === 'table' && flags.details && !flags.quiet) {

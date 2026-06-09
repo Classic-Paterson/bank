@@ -1,7 +1,8 @@
 import { Args, Command, Flags } from '@oclif/core';
 import { Account } from 'akahu';
 
-import { formatOutput, formatCurrency, formatCacheAge } from '../utils/output.js';
+import ora from 'ora';
+import { formatOutput, formatCurrency, colorCurrency, formatCacheAge, sectionHeader } from '../utils/output.js';
 import { getErrorMessage } from '../utils/error.js';
 import { refreshFlag, quietFlag, formatFlag, warnIfConfigCorrupted, warnIfCacheCorrupted, resolveFormat, isCacheEnabled, checkMutuallyExclusiveFlags } from '../utils/flags.js';
 import { apiService } from '../services/api.service.js';
@@ -79,6 +80,7 @@ export default class Accounts extends Command {
       const canUseCache = !flags.details;
 
       // Fetch accounts (from cache or API)
+      const spinner = ora('Fetching accounts...').start();
       const { accounts: rawAccounts, fromCache, cacheAge } = canUseCache
         ? await cacheService.getAccountsWithCache(
             flags.refresh,
@@ -86,6 +88,7 @@ export default class Accounts extends Command {
             () => apiService.listAccounts()
           )
         : { accounts: await apiService.listAccounts(), fromCache: false, cacheAge: null };
+      spinner.stop();
 
       // Update cache if we fetched fresh data
       if (!fromCache && cacheEnabled) {
@@ -226,7 +229,9 @@ export default class Accounts extends Command {
       if (format === 'table' && !flags.quiet) {
         const totalAccounts = sortedAccounts.length;
         const totalBalance = sortedAccounts.reduce((sum: number, acc: AccountSummary) => sum + acc.balance, 0);
-        this.log(`\nSummary: Total Accounts: ${totalAccounts} | Total Balance: ${formatCurrency(totalBalance)}\n`);
+        sectionHeader('Summary', this.log.bind(this));
+        this.log(`  Total Accounts: ${totalAccounts} | Total Balance: ${colorCurrency(totalBalance)}`);
+        this.log('');
       }
 
     } catch (error) {
